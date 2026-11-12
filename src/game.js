@@ -1,6 +1,6 @@
 // ゲーム本体: 自機、敵、弾、歯車、波、強化、勝敗
 import { THREE, rnd, rr, clamp, angLerp, save, persist, jaEn } from './core.js';
-import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake, applyTheme } from './gfx.js';
+import { scene, geo, BMAT, Inst, burst, ring, addShake, applyTheme, mkTank, moveTracks, tankGeo, fxExplode, fxMuzzle, fxSparks, fxDust, fxSplash, fxMote, addMark, clearMarks, flash } from './gfx.js';
 import { themeOf, areaOf } from './themes.js';
 import * as W from './world.js';
 import { I } from './input.js';
@@ -46,29 +46,20 @@ export const G = { state: 'boot' };
 export const P = { x: 0, z: 0 };
 export const S = {};
 const E = [], B = [], K = [], M = [], boomQ = [];
-let u = {}, TH = null, thKey = '', instFar, instSmall, hull, turret, instE, instB, instBul, instGear, instHeal, instMine, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
+let u = {}, TH = null, thKey = '', instFar, instSmall, tank, instE, instB, instBul, instGear, instHeal, instMine, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
 
 export function initGame() {
-  const tr = 0x39405c, bd = 0xffb21e, bd2 = 0xf08a1c;
-  hull = new THREE.Mesh(geo([
-    { s: [1.5, 0.55, 2.0], p: [0, 0.62, 0], c: bd }, { s: [0.42, 0.56, 2.25], p: [-0.86, 0.3, 0], c: tr }, { s: [0.42, 0.56, 2.25], p: [0.86, 0.3, 0], c: tr },
-    { s: [1.1, 0.14, 0.5], p: [0, 0.96, -0.6], c: bd2 }]), MAT);
-  turret = new THREE.Mesh(geo([
-    { s: [0.98, 0.46, 1.05], p: [0, 1.14, -0.05], c: bd2 }, { s: [0.24, 0.24, 1.35], p: [0, 1.14, 1.0], c: tr }, { s: [0.34, 0.3, 0.3], p: [0, 1.14, 1.72], c: tr },
-    { s: [0.36, 0.14, 0.36], p: [0.22, 1.43, -0.2], c: 0xfff0b8 }]), MAT);
-  hull.castShadow = turret.castShadow = true; scene.add(hull); scene.add(turret);
-  const dk = 0x2a2d44;
+  tank = mkTank(0xd9780f, 0.8);
   instE = [
-    new Inst(geo([{ s: [1.1, 0.45, 1.35], p: [0, 0.5, 0], c: 0x8a5cf0 }, { s: [1.4, 0.4, 0.4], p: [0, 0.3, 0.42], c: dk }, { s: [1.4, 0.4, 0.4], p: [0, 0.3, -0.42], c: dk }, { s: [0.34, 0.3, 0.6], p: [0, 0.55, 0.85], c: 0xffd23f }, { s: [0.5, 0.25, 0.5], p: [0, 0.85, -0.15], c: 0xb89cff }]), 140, { shadow: true }),
-    new Inst(geo([{ s: [1.3, 0.5, 1.6], p: [0, 0.58, 0], c: 0xe0457b }, { s: [0.36, 0.5, 1.8], p: [-0.76, 0.28, 0], c: dk }, { s: [0.36, 0.5, 1.8], p: [0.76, 0.28, 0], c: dk }, { s: [0.76, 0.42, 0.76], p: [0, 1.04, -0.1], c: 0xff7aa5 }, { s: [0.2, 0.2, 1.1], p: [0, 1.04, 0.75], c: dk }]), 50, { shadow: true }),
-    new Inst(geo([{ s: [2.2, 0.95, 2.4], p: [0, 0.85, 0], c: 0xd9413c }, { s: [0.55, 0.8, 2.7], p: [-1.3, 0.4, 0], c: dk }, { s: [0.55, 0.8, 2.7], p: [1.3, 0.4, 0], c: dk }, { s: [2.9, 1.1, 0.35], p: [0, 0.65, 1.5], c: 0xc9d1e0 }, { s: [1.2, 0.6, 1.0], p: [0, 1.6, -0.5], c: 0xff7b6b }]), 30, { shadow: true }),
-    new Inst(geo([{ s: [3.8, 1.2, 4.4], p: [0, 1.1, 0], c: 0x2b3158 }, { s: [0.9, 1.1, 4.9], p: [-2.2, 0.55, 0], c: dk }, { s: [0.9, 1.1, 4.9], p: [2.2, 0.55, 0], c: dk }, { s: [2.3, 1.0, 2.3], p: [0, 2.2, -0.3], c: 0xe0457b }, { s: [0.4, 0.4, 2.6], p: [-0.6, 2.2, 1.9], c: dk }, { s: [0.4, 0.4, 2.6], p: [0.6, 2.2, 1.9], c: dk },
-      { s: [0.4, 0.7, 0.4], p: [-0.8, 3.0, -0.3], c: 0xffd23f }, { s: [0.4, 0.9, 0.4], p: [0, 3.1, -0.3], c: 0xffd23f }, { s: [0.4, 0.7, 0.4], p: [0.8, 3.0, -0.3], c: 0xffd23f }, { s: [4.0, 0.25, 0.5], p: [0, 1.3, 2.2], c: 0xe0457b }]), 2, { shadow: true }),
+    new Inst(tankGeo(0x7a4fe0, { lite: true, scale: 0.52 }), 140, { shadow: true }),
+    new Inst(tankGeo(0xd23a6e, { lite: true, long: true, scale: 0.64 }), 50, { shadow: true }),
+    new Inst(tankGeo(0xc8362f, { plow: true, scale: 0.98, tur: 0xe86a58 }), 30, { shadow: true }),
+    new Inst(tankGeo(0x2b3158, { twin: true, crown: true, plow: true, scale: 1.8, tur: 0xc23a6a }), 2, { shadow: true }),
   ];
   const ph = () => new THREE.BoxGeometry(1, 1, 1); // テーマごとに setTheme() で差し替える
   instB = [new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 120, { shadow: true })];
   instFar = new Inst(ph(), 64, { shadow: true }); instSmall = new Inst(ph(), 240, {});
-  instBul = new Inst(new THREE.IcosahedronGeometry(0.3, 0), 420, { mat: BMAT });
+  instBul = new Inst(new THREE.SphereGeometry(1, 8, 6).scale(0.13, 0.13, 0.6), 420, { mat: BMAT });
   instGear = new Inst(geo([{ s: [0.7, 0.2, 0.7], p: [0, 0, 0], c: 0xffd23f, cyl: 6 }, { s: [0.3, 0.24, 0.3], p: [0, 0, 0], c: 0xb8860b, cyl: 6 }]), 360, {});
   instHeal = new Inst(geo([{ s: [0.9, 0.3, 0.3], p: [0, 0, 0], c: 0x5fe08a }, { s: [0.3, 0.3, 0.9], p: [0, 0, 0], c: 0x5fe08a }]), 20, {});
   instMine = new Inst(geo([{ s: [0.9, 0.22, 0.9], p: [0, 0.11, 0], c: 0x39405c, cyl: 8 }, { s: [0.3, 0.14, 0.3], p: [0, 0.28, 0], c: 0xff5b6b, cyl: 6 }]), 16, {});
@@ -113,7 +104,7 @@ export function startRun() {
   Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
   music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false });
-  hull.visible = turret.visible = true; tgt = null;
+  tank.g.visible = true; tgt = null; clearMarks(); P.pitch = P.roll = 0; P.markD = 0; P.px = 0; P.pz = 0;
   save.runs++; persist(); UI.hideAll(); UI.setBoss(-1);
   G.tut = G.first ? 0 : 2; UI.hint(null);
   platform.gameplayStart();
@@ -142,9 +133,9 @@ function bullet(x, z, a, foe, dmg, spd, life) {
 }
 function shoot() {
   const n = S.shots;
-  for (let k = 0; k < n; k++) { const a = P.ty + (k - (n - 1) / 2) * 0.13; bullet(P.x + Math.sin(a) * 1.7, P.z + Math.cos(a) * 1.7, a, false, S.dmg, S.bspd, S.blife); }
+  for (let k = 0; k < n; k++) { const a = P.ty + (k - (n - 1) / 2) * 0.13; bullet(P.x + Math.sin(a) * 2.2, P.z + Math.cos(a) * 2.2, a, false, S.dmg, S.bspd, S.blife); }
   for (let k = 0; k < S.rear; k++) { const a = P.ty + Math.PI + (k - (S.rear - 1) / 2) * 0.2; bullet(P.x + Math.sin(a) * 1.2, P.z + Math.cos(a) * 1.2, a, false, S.dmg, S.bspd, S.blife); }
-  P.recoil = 1; sfx.shot(); burst(P.x + Math.sin(P.ty) * 1.9, 1.15, P.z + Math.cos(P.ty) * 1.9, 3, 0xfff2a8, 4, 0.22, 0.18, 0.3);
+  P.recoil = 1; sfx.shot(); fxMuzzle(P.x + Math.sin(P.ty) * 2.3, P.z + Math.cos(P.ty) * 2.3, P.ty);
 }
 function hurtE(e, d, kx, kz) {
   if (e.dead) return; e.hp -= d; e.hitT = 0.1;
@@ -154,21 +145,21 @@ function hurtE(e, d, kx, kz) {
 function kill(e) {
   e.dead = true; const d = ET[e.k]; G.kills++; G.scrap += d.sc;
   burst(e.x, 0.8, e.z, e.k === 0 ? 8 : e.k === 3 ? 60 : 16, d.col, e.k >= 2 ? 11 : 8, e.k >= 2 ? 0.5 : 0.34, 0.6);
-  burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7);
+  burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7); fxExplode(e.x, e.z, e.k === 0 ? 1.5 : e.k === 1 ? 1.9 : e.k === 2 ? 3 : 6);
   if (e.k >= 2) { ring(e.x, e.z, e.r * 2.2); addShake(e.k === 3 ? 1 : 0.3); sfx.boom(true); } else { sfx.boom(false); addShake(0.06); }
   const n = e.k === 3 ? 14 : e.k === 2 ? 3 : 1;
   for (let i = 0; i < n; i++) K.push({ x: e.x + rr(-1, 1) * (n > 1 ? e.r : 0.2), z: e.z + rr(-1, 1) * (n > 1 ? e.r : 0.2), v: e.k === 3 ? 2 : e.k === 2 ? (i === 0 ? 3 : 1) : d.xp, t: 0, heal: false, vac: false });
   if (e.k === 3) win();
 }
 function explode(x, z, R, d) {
-  ring(x, z, R); burst(x, 1, z, 16, 0xffa53a, 10, 0.4, 0.5); burst(x, 1, z, 6, 0xfff2a8, 6, 0.3, 0.35); burst(x, 1, z, 6, 0x4a4f66, 6, 0.42, 0.8);
+  ring(x, z, R); fxExplode(x, z, R); burst(x, 1, z, 5, 0x4a4f66, 8, 0.36, 0.9);
   addShake(Math.min(0.55, R * 0.07)); sfx.boom(R > 4);
   for (const e of E) { if (e.dead) continue; const dx = e.x - x, dz = e.z - z, dd = Math.hypot(dx, dz); if (dd < R + e.r) { const f = 1 - 0.5 * Math.min(1, dd / R), il = 1 / (dd || 1); hurtE(e, d * f, dx * il * 9, dz * il * 9); } }
   for (let i = 0; i < W.blocks.length; i++) { const b = W.blocks[i]; if (b.hp <= 0) continue; if (Math.hypot(b.x - x, b.z - z) < R + 0.5) W.damageBlock(b, d * 0.8); }
 }
 function onBreak(b) {
   if (b.t === W.BARREL) { boomQ.push({ x: b.x, z: b.z, t: 0.07 }); return; }
-  burst(b.x, 0.9, b.z, b.t === W.CRATE ? 9 : 12, b.t === W.CRATE ? TH.crateFx : TH.wallFx, 7, 0.42, 0.7); sfx.crack(); addShake(0.05);
+  burst(b.x, 0.9, b.z, b.t === W.CRATE ? 9 : 12, b.t === W.CRATE ? TH.crateFx : TH.wallFx, 7, 0.42, 0.7); sfx.crack(); addShake(0.05); fxDust(b.x, b.z, b.t === W.CRATE ? TH.crateFx : TH.wallFx, 4, 1.5);
   if (b.t === W.CRATE) {
     const q = rnd();
     if (b.gift || q < 0.4) K.push({ x: b.x, z: b.z, v: 1, t: 0, heal: false, vac: false });
@@ -179,14 +170,14 @@ function hurt(d) {
   if (G.inv > 0 || G.state !== 'play') return;
   P.hp -= d * Math.min(1, 0.5 + 0.17 * Math.max(0, G.wave) + 0.15 * (G.stage - 1)); G.inv = 0.45; UI.vignette(); addShake(0.3); sfx.hurt(); burst(P.x, 1, P.z, 5, 0xffb21e, 6, 0.3, 0.4);
   if (P.hp <= 0) {
-    P.hp = 0; P.dead = true; G.state = 'dead'; G.endT = 1.3; hull.visible = turret.visible = false;
+    P.hp = 0; P.dead = true; G.state = 'dead'; G.endT = 1.3; tank.g.visible = false; fxExplode(P.x, P.z, 5);
     burst(P.x, 1, P.z, 40, 0xffb21e, 12, 0.5, 0.9); burst(P.x, 1, P.z, 16, 0x39405c, 9, 0.5, 1); ring(P.x, P.z, 6); addShake(1); sfx.boom(true); sfx.lose();
     platform.gameplayStop();
   }
 }
 function win() {
   G.state = 'win'; G.endT = 2.4; G.won = true; G.scrap += 30 + 10 * G.stage; UI.setBoss(-1);
-  for (const e of E) if (!e.dead) { e.dead = true; burst(e.x, 0.8, e.z, 8, ET[e.k].col, 8, 0.34, 0.6); }
+  for (const e of E) if (!e.dead) { e.dead = true; burst(e.x, 0.8, e.z, 8, ET[e.k].col, 8, 0.34, 0.6); fxExplode(e.x, e.z, 1.6); }
   for (const b of B) b.dead = true; for (const k of K) k.vac = true;
   UI.banner(jaEn('拠点を奪還！', 'BASE RECLAIMED!'), true); sfx.win(); platform.gameplayStop(); platform.happyTime();
 }
@@ -242,10 +233,14 @@ export function update(dt) {
   if (live) {
     const wet = W.inWater(P.x, P.z), spd = S.speed * (wet ? 0.62 : 1);
     const k = 1 - Math.exp(-14 * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
-    if (I.mx || I.mz) { G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.07; burst(P.x - Math.sin(P.ry) * 1.1, 0.15, P.z - Math.cos(P.ry) * 1.1, wet ? 2 : 1, wet ? 0xbfe6ff : TH.dust, wet ? 3 : 1.6, wet ? 0.3 : 0.36, 0.45, wet ? 0.7 : 0.25); } }
+    if (I.mx || I.mz) { G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.07; const bx = P.x - Math.sin(P.ry) * 1.1, bz = P.z - Math.cos(P.ry) * 1.1; if (wet) { fxSplash(bx, bz, 2); if (rnd() < 0.2) ring(P.x, P.z, 2.2, 0x9fd8ff); } else fxDust(bx, bz, TH.dust, 1); } }
+    const ax0 = P.vx0 || 0, az0 = P.vz0 || 0, acx = (P.vx - ax0) / dt, acz = (P.vz - az0) / dt, fw = acx * Math.sin(P.ry) + acz * Math.cos(P.ry), sd = acx * Math.cos(P.ry) - acz * Math.sin(P.ry), kt = 1 - Math.exp(-8 * dt);
+    P.pitch += (clamp(-fw * 0.006, -0.09, 0.09) - P.pitch) * kt; P.roll += (clamp(sd * 0.006, -0.08, 0.08) - P.roll) * kt; P.vx0 = P.vx; P.vz0 = P.vz;
+    if (rnd() < dt * 7) fxMote(P.x, P.z);
     P.x += P.vx * dt; P.z += P.vz * dt;
     if (I.mx || I.mz) P.ry = angLerp(P.ry, Math.atan2(I.mx, I.mz), 1 - Math.exp(-10 * dt));
     W.pushOut(P, 1.0, null);
+    { const mv = Math.hypot(P.x - P.px, P.z - P.pz); P.px = P.x; P.pz = P.z; if (mv < 2) { moveTracks(tank, mv); P.markD += mv; if (wet) P.markD = 0; else if (P.markD > 0.55) { addMark(P.x, P.z, P.ry, P.markD + 0.05); P.markD = 0; } } }
     let fire = I.fire, aim = P.ty;
     if (I.touch) {
       tgtT -= dt; if (tgtT <= 0 || !tgt || tgt.dead || tgt.hp <= 0) { tgt = findTarget(); tgtT = 0.15; }
@@ -284,7 +279,7 @@ export function update(dt) {
     e.ry = angLerp(e.ry, e.k === 1 || e.k === 3 ? Math.atan2(dx, dz) : Math.atan2(mx || dx, mz || dz), 1 - Math.exp(-8 * dt));
     W.pushOut(e, e.r, b => W.damageBlock(b, d.chew * dt));
     if (!live) continue;
-    if (e.k === 1) { e.cd -= dt; if (e.cd <= 0 && dist < 19) { e.cd = d.shoot; bullet(e.x + dx * 1.2, e.z + dz * 1.2, Math.atan2(dx, dz), true, d.dmg, 11, 2.4); } }
+    if (e.k === 1) { e.cd -= dt; if (e.cd <= 0 && dist < 19) { e.cd = d.shoot; fxMuzzle(e.x + dx * 1.3, e.z + dz * 1.3, Math.atan2(dx, dz), 0xff3a7a); bullet(e.x + dx * 1.2, e.z + dz * 1.2, Math.atan2(dx, dz), true, d.dmg, 11, 2.4); } }
     if (e.k === 3) {
       e.cd -= dt; if (e.cd <= 0) { e.cd = 2.6; const o = rnd() * 6.283, n = 10 + Math.min(8, G.stage * 2); for (let j = 0; j < n; j++) bullet(e.x, e.z, o + j / n * 6.283, true, 8, 9, 3.2); sfx.hit(); }
       e.c2 -= dt; if (e.c2 <= 0) { e.c2 = 6.5; for (let j = 0; j < 4; j++) { spawn(0); const s = E[E.length - 1]; s.x = e.x + rr(-3, 3); s.z = e.z + rr(-3, 3); } }
@@ -308,7 +303,7 @@ export function update(dt) {
     if (Math.abs(b.x) > W.A || Math.abs(b.z) > W.A) { b.dead = true; continue; }
     const blk = W.blockAt(b.x, b.z);
     if (blk) {
-      b.dead = true; burst(b.x, 1.1, b.z, 3, blk.t === W.CRATE ? TH.crateFx : blk.t === W.WALL ? TH.wallFx : 0xe5484d, 5, 0.22, 0.3);
+      b.dead = true; burst(b.x, 1.1, b.z, 2, blk.t === W.CRATE ? TH.crateFx : blk.t === W.WALL ? TH.wallFx : 0xe5484d, 5, 0.22, 0.3); if (!b.foe) fxSparks(b.x, b.z, 3);
       W.damageBlock(blk, b.foe ? 4 : b.dmg); if (!b.foe) { sfx.hit(); if (S.exR) explode(b.x, b.z, S.exR, b.dmg * 0.6); }
       continue;
     }
@@ -317,7 +312,7 @@ export function update(dt) {
       const e = E[j]; if (e.dead || e.born < 0.15) continue; const dx = e.x - b.x, dz = e.z - b.z, r = e.r + 0.35;
       if (dx * dx + dz * dz > r * r || (b.hit && b.hit.includes(e))) continue;
       const sp = Math.hypot(b.vx, b.vz); hurtE(e, b.dmg, b.vx / sp * 4, b.vz / sp * 4); sfx.hit();
-      burst(b.x, 1.1, b.z, 3, 0xfff2a8, 5, 0.2, 0.25);
+      fxSparks(b.x, b.z, 4);
       if (S.exR) explode(b.x, b.z, S.exR, b.dmg * 0.6);
       if (b.bounce > 0) {
         let n = null, nd = 144; for (const o of E) { if (o.dead || o === e || (b.hit && b.hit.includes(o))) continue; const q = (o.x - b.x) ** 2 + (o.z - b.z) ** 2; if (q < nd) { nd = q; n = o; } }
@@ -352,16 +347,15 @@ export function update(dt) {
 }
 
 export function draw(time) {
-  hull.position.set(P.x, 0, P.z); hull.rotation.y = P.ry;
-  const rc = P.recoil * 0.22; turret.position.set(P.x - Math.sin(P.ty) * rc, 0, P.z - Math.cos(P.ty) * rc); turret.rotation.y = P.ty;
-  const blink = G.inv > 0 && ((time * 14) | 0) % 2 === 0; if (!P.dead) hull.visible = turret.visible = !blink;
+  tank.g.position.set(P.x, 0, P.z); tank.g.rotation.y = P.ry; tank.tilt.rotation.x = P.pitch - P.recoil * 0.03 * Math.cos(P.ty - P.ry); tank.tilt.rotation.z = P.roll; tank.tur.rotation.y = P.ty - P.ry; tank.brl.position.z = -P.recoil * 0.28;
+  const blink = G.inv > 0 && ((time * 14) | 0) % 2 === 0; if (!P.dead) tank.g.visible = !blink;
   for (const it of instE) it.begin();
   for (const e of E) { const s = Math.min(1, e.born * 3.5) * (e.hitT > 0 ? 1.12 : 1), c = e.hitT > 0 ? 2.6 : 1; instE[e.k].put(e.x, 0, e.z, e.ry, s, s, c, c, c); }
   for (const it of instE) it.end();
   for (const it of instB) it.begin();
   for (const b of W.blocks) { if (b.hp <= 0) continue; const s = b.hitT > 0 ? 0.9 : 1, c = 0.6 + 0.4 * (b.hp / b.max), tl = b.t === W.CRATE ? TH.tc : b.t === W.WALL ? TH.tw : null, tn = tl ? tl[(b.v * tl.length) | 0] : null; instB[b.t].put(b.x, 0, b.z, b.ry, s, (b.hitT > 0 ? 1.08 : 1) * b.sy, tn ? c * tn[0] : c, tn ? c * tn[1] : c, tn ? c * tn[2] : c); }
   for (const it of instB) it.end();
-  instBul.begin(); for (const b of B) { if (b.foe) instBul.put(b.x, 1.15, b.z, 0, 1.15, 1.15, 1, 0.22, 0.55); else instBul.put(b.x, 1.15, b.z, 0, 1, 1, 1, 0.93, 0.4); } instBul.end();
+  instBul.begin(); for (const b of B) { const ry = Math.atan2(b.vx, b.vz); if (b.foe) instBul.put(b.x, 1.15, b.z, ry, 1.3, 1.3, 3.2, 0.35, 1.2); else instBul.put(b.x, 1.15, b.z, ry, 1, 1, 3, 1.7, 0.45); } instBul.end();
   instGear.begin(); instHeal.begin();
   for (const k of K) { const y = 0.55 + Math.sin(time * 5 + k.x) * 0.12; if (k.heal) instHeal.put(k.x, y + 0.2, k.z, time * 2, 1.2); else instGear.put(k.x, y, k.z, time * 3 + k.z, k.v > 1 ? 1.5 : 1); }
   instGear.end(); instHeal.end();
