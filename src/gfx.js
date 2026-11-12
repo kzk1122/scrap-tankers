@@ -114,18 +114,21 @@ function tankParts(o = {}) {
   paint.push(ex([[-1.3, 0.38], [1.2, 0.38], [1.5, 0.62], [1.0, 1.0], [-1.15, 1.0], [-1.38, 0.78]], 1.34, 0.06).translate(0, 0, -0.67).rotateY(-Math.PI / 2));
   paint.push(new THREE.BoxGeometry(1.1, 0.1, 0.85).translate(0, 1.08, -0.72));
   for (const x of [-0.98, 0.98]) paint.push(new THREE.BoxGeometry(0.5, 0.06, 3.05).translate(x, 0.74, 0.02));
-  if (!o.lite) { paint.push(new RoundedBoxGeometry(0.34, 0.24, 0.6, 1, 0.05).translate(-0.98, 0.9, -0.55)); paint.push(new RoundedBoxGeometry(0.34, 0.2, 0.44, 1, 0.05).translate(0.98, 0.88, -0.75)); }
+  if (o.light) { paint.push(new THREE.BoxGeometry(1.7, 0.08, 0.34).translate(0, 1.36, -1.2)); for (const x of [-0.6, 0.6]) paint.push(new THREE.BoxGeometry(0.1, 0.3, 0.12).translate(x, 1.2, -1.2)); }
+  else if (!o.lite) { paint.push(new RoundedBoxGeometry(0.34, 0.24, 0.6, 1, 0.05).translate(-0.98, 0.9, -0.55)); paint.push(new RoundedBoxGeometry(0.34, 0.2, 0.44, 1, 0.05).translate(0.98, 0.88, -0.75)); }
   const Y = 1.06, tur = [];
   tur.push(ex([[-0.62, 0.72], [0.62, 0.72], [0.78, 0.2], [0.5, -0.82], [-0.5, -0.82], [-0.78, 0.2]], 0.4, 0.07).rotateX(-Math.PI / 2).translate(0, 0, -0.05));
   tur.push(new THREE.CylinderGeometry(0.27, 0.3, 0.1, n).translate(0.2, 0.5, -0.25)); tur.push(new THREE.BoxGeometry(0.62, 0.36, 0.34).translate(0, 0.2, 0.86));
-  const brl = []; const L = o.long ? 2.1 : 1.7;
-  for (const bx of o.twin ? [-0.24, 0.24] : [0]) { brl.push(cylZ(0.1, 0.125, L, n, 0.2, 0.95 + L / 2).translate(bx, 0, 0)); brl.push(cylZ(0.15, 0.15, 0.5, n, 0.2, 1.25).translate(bx, 0, 0)); brl.push(cylZ(0.17, 0.17, 0.3, n, 0.2, 0.92 + L).translate(bx, 0, 0)); }
+  const brl = []; const L = o.long ? 2.1 : o.short ? 0.9 : o.laser ? 2.2 : 1.7, br = o.short ? 2 : o.laser ? 0.65 : 1;
+  if (o.armor) { for (const x of [-1.33, 1.33]) steel.push(new THREE.BoxGeometry(0.12, 0.5, 2.3).translate(x, 0.62, 0)); steel.push(new THREE.BoxGeometry(1.5, 0.4, 0.12).translate(0, 0.72, 1.5)); for (const x of [-0.86, 0.86]) tur.push(new THREE.BoxGeometry(0.1, 0.34, 1.1).translate(x, 0.22, -0.1)); }
+  for (const bx of o.twin ? [-0.24, 0.24] : [0]) { brl.push(cylZ(0.1 * br, 0.125 * br, L, n, 0.2, 0.95 + L / 2).translate(bx, 0, 0)); brl.push(cylZ(0.15, 0.15, 0.5, n, 0.2, 1.25).translate(bx, 0, 0)); brl.push(cylZ(0.17 * br, 0.17 * br, 0.3, n, 0.2, 0.92 + L).translate(bx, 0, 0)); }
+  if (o.laser) for (const z of [1.5, 2.0, 2.5]) brl.push(cylZ(0.16, 0.16, 0.08, n, 0.2, z));
   const wn = o.lite ? 8 : 12;
   for (const sx of [-0.98, 0.98]) { for (let i = 0; i < 5; i++) steel.push(cylX(0.25, 0.3, wn, sx, 0.27, -1.0 + i * 0.5)); steel.push(cylX(0.2, 0.3, wn, sx, 0.46, 1.3)); steel.push(cylX(0.2, 0.3, wn, sx, 0.46, -1.32)); steel.push(new THREE.BoxGeometry(0.2, 0.3, 2.5).translate(sx, 0.4, 0)); }
   if (o.plow) { steel.push(new THREE.BoxGeometry(3.0, 0.9, 0.16).translate(0, 0.55, 1.75)); steel.push(new THREE.BoxGeometry(0.2, 0.3, 0.5).translate(-0.7, 0.5, 1.5)); steel.push(new THREE.BoxGeometry(0.2, 0.3, 0.5).translate(0.7, 0.5, 1.5)); for (const x of [-1.33, 1.33]) steel.push(new THREE.BoxGeometry(0.12, 0.5, 2.2).translate(x, 0.6, 0)); }
   if (o.crown) for (const x of [-0.4, 0, 0.4]) glow.push(new THREE.BoxGeometry(0.16, x ? 0.3 : 0.42, 0.16).translate(x, Y + 0.6 + (x ? 0 : 0.06), -0.3));
   if (o.eye) glow.push(new THREE.BoxGeometry(0.66, 0.1, 0.06).translate(0, Y + 0.3, 0.72));
-  return { paint, steel, rubber, tur, brl, Y };
+  return { paint, steel, rubber, tur, brl, Y, L };
 }
 const cleatG = () => new THREE.BoxGeometry(0.46, 0.07, 0.15);
 // 敵用: 1つにまとめたジオメトリ（インスタンス描画）。履帯の板は止まったまま
@@ -141,13 +144,14 @@ export function tankGeo(hex, o = {}) {
 const merged = (list, hex) => { const o = { pos: [], nor: [], col: [] }, c = new THREE.Color(hex); for (const g of list) pushGeo(o, g, c); return finish(o); };
 const NC = 26;
 // 自機用: 砲塔が回り、履帯が動き、車体が傾くモデル
-export function mkTank(hex, sc = 1) {
-  const P = tankParts({}), g = new THREE.Group(), tilt = new THREE.Group(), tur = new THREE.Group();
+export function mkTank(hex, sc = 1, o = {}) {
+  const P = tankParts(o), g = new THREE.Group(), tilt = new THREE.Group(), tur = new THREE.Group();
   const pm = patch(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.25, roughness: 0.6 }), { detail: 2 }), sm = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.85, roughness: 0.42 }), rm = new THREE.MeshStandardMaterial({ color: 0x17181b, metalness: 0.3, roughness: 0.75 });
   const body = new THREE.Mesh(merged(P.paint, hex), pm), wheels = new THREE.Mesh(merged(P.steel, 0x2b2e33), sm), tm = new THREE.Mesh(merged(P.tur, hex), pm), brl = new THREE.Mesh(merged(P.brl.concat([new THREE.CylinderGeometry(0.012, 0.012, 1.3, 5).translate(-0.5, 1.05, -0.6)]), 0x2b2e33), sm);
   const cl = new THREE.InstancedMesh(cleatG(), rm, NC * 2); cl.frustumCulled = false;
   for (const m of [body, wheels, tm, brl, cl]) { m.castShadow = true; m.receiveShadow = true; }
   for (const sx of [-0.45, 0.45]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 1.6) })); l.position.set(sx, 0.78, 1.32); body.add(l); }
+  if (o.laser) { const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.6, 3.2) })); tip.position.set(0, 0.2, 1.1 + P.L); brl.add(tip); }
   tur.position.y = P.Y; tur.add(tm); tur.add(brl); tilt.add(body); tilt.add(tur); g.add(tilt); g.add(wheels); g.add(cl); g.scale.setScalar(sc); scene.add(g);
   const t = { g, tilt, tur, brl, cl, off: 0, sc }; moveTracks(t, 0); return t;
 }

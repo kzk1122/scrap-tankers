@@ -1,6 +1,6 @@
 // 入力: PC は WASD＋マウス、スマホは画面ドラッグのスティック（照準と射撃は自動）
 import { THREE } from './core.js';
-export const I = { mx: 0, mz: 0, fire: false, ax: 0, az: -1, touch: false, moved: false, fired: false, ext: null };
+export const I = { mx: 0, mz: 0, fire: false, ax: 0, az: -1, touch: false, moved: false, fired: false, ext: null, dest: null, auto: false, click: false, px: 0, pz: 0 };
 const keys = new Set(); const ndc = new THREE.Vector2(0, 0.3);
 let joyId = null, jx = 0, jy = 0, ox = 0, oy = 0, mouseDown = false, joyEl = null, first = null;
 const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1), hitP = new THREE.Vector3();
@@ -21,7 +21,7 @@ export function initInput(onFirst) {
     if (e.pointerType === 'touch') {
       I.touch = true;
       if (joyId === null) { joyId = e.pointerId; ox = e.clientX; oy = e.clientY; jx = jy = 0; joyEl.hidden = false; joyEl.style.left = ox + 'px'; joyEl.style.top = oy + 'px'; joyEl.firstElementChild.style.transform = 'translate(-50%,-50%)'; }
-    } else { I.touch = false; if (e.button === 0) mouseDown = true; setNdc(e); }
+    } else { I.touch = false; if (e.button === 0) { mouseDown = true; I.click = true; } setNdc(e); }
   });
   window.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch') {
@@ -49,8 +49,14 @@ export function pollInput(camera) {
   if (keys.has('s') || keys.has('ArrowDown')) z += 1;
   if (joyId !== null) { x = jx; z = jy; if (Math.hypot(x, z) < 0.15) x = z = 0; }
   const l = Math.hypot(x, z); if (l > 1) { x /= l; z /= l; }
-  I.mx = x; I.mz = z; if (l > 0.2) I.moved = true;
+  if (!I.touch) { ray.setFromCamera(ndc, camera); if (ray.ray.intersectPlane(plane, hitP)) { I.ax = hitP.x; I.az = hitP.z; } }
+  // PC: クリックした場所へ移動（押しっぱなしで追従）。その間は狙いも自動。キーを押すとキーボード操作に戻る
+  if (l > 0) { I.dest = null; I.auto = false; }
+  else if (!I.touch) {
+    if (mouseDown || I.click) { I.dest = { x: I.ax, z: I.az }; I.auto = true; }
+    if (I.dest) { const dx = I.dest.x - I.px, dz = I.dest.z - I.pz, d = Math.hypot(dx, dz); if (d < 0.6) I.dest = null; else { x = dx / d; z = dz / d; } }
+  }
+  I.mx = x; I.mz = z; if (x || z) I.moved = true;
   I.fire = mouseDown || keys.has(' ');
   if (I.fire) I.fired = true;
-  if (!I.touch) { ray.setFromCamera(ndc, camera); if (ray.ray.intersectPlane(plane, hitP)) { I.ax = hitP.x; I.az = hitP.z; } }
 }
