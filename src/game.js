@@ -211,7 +211,7 @@ function tutorial() {
   if (G.tut >= 2) return;
   if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
   if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーで移動', 'Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>'), true); }
-  if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('マウスで狙って、クリック長押しで射撃', 'Aim with the mouse, hold click to fire'), !I.fired); }
+  if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('マウスで狙う　射撃は自動', 'Aim with the mouse. Your tank fires automatically'), G.kills < 1); }
 }
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
   let best = null, bd = (S.bspd * S.blife + 1) ** 2;
@@ -241,7 +241,7 @@ export function update(dt) {
     if (I.mx || I.mz) P.ry = angLerp(P.ry, Math.atan2(I.mx, I.mz), 1 - Math.exp(-10 * dt));
     W.pushOut(P, 1.0, null);
     { const mv = Math.hypot(P.x - P.px, P.z - P.pz); P.px = P.x; P.pz = P.z; if (mv < 2) { moveTracks(tank, mv); P.markD += mv; if (wet) P.markD = 0; else if (P.markD > 0.55) { addMark(P.x, P.z, P.ry, P.markD + 0.05); P.markD = 0; } } }
-    let fire = I.fire, aim = P.ty;
+    let fire = I.ext ? I.fire : true, aim = P.ty; // PC も射撃は自動（狙いはマウス）。ボットだけ撃つかどうかを指定できる
     if (I.touch) {
       tgtT -= dt; if (tgtT <= 0 || !tgt || tgt.dead || tgt.hp <= 0) { tgt = findTarget(); tgtT = 0.15; }
       if (tgt) { aim = Math.atan2(tgt.x - P.x, tgt.z - P.z); fire = true; } else { fire = false; if (I.mx || I.mz) aim = Math.atan2(I.mx, I.mz); }
