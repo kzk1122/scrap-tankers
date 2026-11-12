@@ -35,7 +35,7 @@ const play = p => p.evaluate(() => { const T = __tk; T.q(4); T.manual(true); T.i
       user: { getUser: async () => ({ username: 'Tester', profilePictureUrl: '' }) } } };` }));
   await p.goto(root + 'cg/index.html'); await p.waitForTimeout(1500);
   const s = await p.evaluate(() => ({ scrap: __tk.save.scrap, stage: __tk.save.stage, tur: __tk.save.parts.turret, paint: __tk.save.parts.paint, calls: __cg.calls.slice(), muted: __tk.platform.muted(), user: __tk.platform.user }));
-  ok(s.scrap === 777 && s.stage === 3 && s.tur === 'twin' && s.paint === 'orange', 'save loaded from SDK data ' + JSON.stringify([s.scrap, s.stage, s.tur]));
+  ok(s.scrap === 797 && s.stage === 3 && s.tur === 'twin' && s.paint === 'orange', 'save loaded from SDK data (+20 login reward) ' + JSON.stringify([s.scrap, s.stage, s.tur]));
   ok(['init', 'loadingStart', 'loadingStop', 'gameplayStart'].every(n => s.calls.includes(n)), 'sdk calls ' + s.calls.join(','));
   ok(s.muted && s.user && s.user.name === 'Tester', 'muteAudio respected, user read');
   await play(p); const c2 = await p.evaluate(() => ({ calls: __cg.calls, saved: JSON.parse(__cg.data.scrap_tankers_v1).runs }));
