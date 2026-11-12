@@ -1,9 +1,10 @@
 // ゲーム本体: 自機、敵、弾、歯車、波、強化、勝敗
 import { THREE, rnd, rr, clamp, angLerp, save, persist, jaEn } from './core.js';
-import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake } from './gfx.js';
+import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake, applyTheme } from './gfx.js';
+import { themeOf, areaOf } from './themes.js';
 import * as W from './world.js';
 import { I } from './input.js';
-import { sfx } from './audio.js';
+import { sfx, music, musicVol, musicTrack } from './audio.js';
 import * as UI from './ui.js';
 import { platform } from './platform.js';
 
@@ -45,7 +46,7 @@ export const G = { state: 'boot' };
 export const P = { x: 0, z: 0 };
 export const S = {};
 const E = [], B = [], K = [], M = [], boomQ = [];
-let u = {}, hull, turret, instE, instB, instBul, instGear, instHeal, instMine, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
+let u = {}, TH = null, thKey = '', instFar, instSmall, hull, turret, instE, instB, instBul, instGear, instHeal, instMine, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
 
 export function initGame() {
   const tr = 0x39405c, bd = 0xffb21e, bd2 = 0xf08a1c;
@@ -64,12 +65,9 @@ export function initGame() {
     new Inst(geo([{ s: [3.8, 1.2, 4.4], p: [0, 1.1, 0], c: 0x2b3158 }, { s: [0.9, 1.1, 4.9], p: [-2.2, 0.55, 0], c: dk }, { s: [0.9, 1.1, 4.9], p: [2.2, 0.55, 0], c: dk }, { s: [2.3, 1.0, 2.3], p: [0, 2.2, -0.3], c: 0xe0457b }, { s: [0.4, 0.4, 2.6], p: [-0.6, 2.2, 1.9], c: dk }, { s: [0.4, 0.4, 2.6], p: [0.6, 2.2, 1.9], c: dk },
       { s: [0.4, 0.7, 0.4], p: [-0.8, 3.0, -0.3], c: 0xffd23f }, { s: [0.4, 0.9, 0.4], p: [0, 3.1, -0.3], c: 0xffd23f }, { s: [0.4, 0.7, 0.4], p: [0.8, 3.0, -0.3], c: 0xffd23f }, { s: [4.0, 0.25, 0.5], p: [0, 1.3, 2.2], c: 0xe0457b }]), 2, { shadow: true }),
   ];
-  const wd = 0xc98d4b, wd2 = 0xa66f36;
-  instB = [
-    new Inst(geo([{ s: [1.7, 1.7, 1.7], p: [0, 0.85, 0], c: wd }, { s: [1.82, 0.26, 1.82], p: [0, 0.2, 0], c: wd2 }, { s: [1.82, 0.26, 1.82], p: [0, 1.5, 0], c: wd2 }]), 220, { shadow: true }),
-    new Inst(geo([{ s: [2, 1.9, 2], p: [0, 0.95, 0], c: 0xcfd6e4 }, { s: [2.04, 0.3, 2.04], p: [0, 1.75, 0], c: 0xaab4c8 }]), 140, { shadow: true }),
-    new Inst(geo([{ s: [1.3, 1.6, 1.3], p: [0, 0.8, 0], c: 0xe5484d, cyl: 10 }, { s: [1.36, 0.3, 1.36], p: [0, 0.8, 0], c: 0xffd23f, cyl: 10 }]), 60, { shadow: true }),
-  ];
+  const ph = () => new THREE.BoxGeometry(1, 1, 1); // テーマごとに setTheme() で差し替える
+  instB = [new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 120, { shadow: true })];
+  instFar = new Inst(ph(), 64, { shadow: true }); instSmall = new Inst(ph(), 240, {});
   instBul = new Inst(new THREE.IcosahedronGeometry(0.3, 0), 420, { mat: BMAT });
   instGear = new Inst(geo([{ s: [0.7, 0.2, 0.7], p: [0, 0, 0], c: 0xffd23f, cyl: 6 }, { s: [0.3, 0.24, 0.3], p: [0, 0, 0], c: 0xb8860b, cyl: 6 }]), 360, {});
   instHeal = new Inst(geo([{ s: [0.9, 0.3, 0.3], p: [0, 0, 0], c: 0x5fe08a }, { s: [0.3, 0.3, 0.9], p: [0, 0, 0], c: 0x5fe08a }]), 20, {});
@@ -77,28 +75,47 @@ export function initGame() {
   W.setOnBreak(onBreak);
 }
 
+function swapGeo(inst, parts) { inst.m.geometry.dispose(); inst.m.geometry = geo(parts); }
+// 拠点の種類が変わったら、モデル・地面・周囲の景色・小物を入れ替える
+function setTheme(stage) {
+  TH = themeOf(stage); const key = TH.id + ':' + (TH.id === 'river' ? stage : 0);
+  for (const b of W.blocks) { if (b.t === W.CRATE && TH.spin) b.ry = ((b.v * 4) | 0) * Math.PI / 2; if (b.t === W.WALL && TH.tall) b.sy = TH.tall[0] + (TH.tall[1] - TH.tall[0]) * ((b.v * 7.3) % 1); }
+  let sd = (stage * 9973 + 7) >>> 0; const r = () => { sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0; return sd / 4294967296; };
+  instSmall.begin(); const nS = TH.smallN || 170; // 小物（当たり判定なし）
+  for (let i = 0, n = 0; i < nS * 3 && n < nS; i++) { const x = (r() * 2 - 1) * (W.A - 1), z = (r() * 2 - 1) * (W.A - 1); if (W.blockAt(x, z) || W.inWater(x, z)) continue; instSmall.put(x, 0, z, r() * 6.283, 0.8 + r() * 0.7); n++; }
+  instSmall.end();
+  if (key === thKey) return; thKey = key;
+  swapGeo(instB[0], TH.crate()); swapGeo(instB[1], TH.wall()); swapGeo(instB[2], TH.barrel()); swapGeo(instFar, TH.far()); swapGeo(instSmall, TH.small());
+  applyTheme(TH, W.feat);
+  instFar.begin(); const nF = TH.farN || 46, fs = TH.farS || [1, 1.9], ft = TH.farT; // 柵の外の景色
+  for (let i = 0; i < nF; i++) {
+    const side = (r() * 4) | 0, d = W.A + 5 + r() * 24, along = (r() * 2 - 1) * (W.A + 24), x = side === 0 ? -d : side === 1 ? d : along, z = side === 2 ? -d : side === 3 ? d * 0.7 : along;
+    const c = ft ? ft[(r() * ft.length) | 0] : [1, 1, 1], sc = fs[0] + r() * (fs[1] - fs[0]); instFar.put(x, TH.farY || 0, z, r() * 6.283, sc, sc, c[0], c[1], c[2]);
+  }
+  instFar.end();
+}
 function recalc() {
   S.dmg = 10 * (1 + 0.1 * save.up.dmg) * (1 + 0.3 * u.heavy);
   S.rate = 2.6 * (1 + 0.25 * u.rapid);
   S.shots = 1 + u.split; S.pierce = u.pierce; S.bounce = u.bounce; S.rear = u.rear;
   S.exR = u.boom ? 2.0 + 0.6 * u.boom : 0;
   S.maxhp = 100 + 15 * save.up.hp + 25 * u.armor;
-  S.speed = 9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine);
+  S.speed = 9.9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine);
   S.mag = 4 * (1 + 0.6 * u.magnet); S.regen = 1.2 * u.regen; S.mine = u.mine;
   S.bspd = 30 * (1 + 0.2 * u.long); S.blife = 0.7;
 }
 const need = l => 4 + 3 * (l - 1);
 
 export function startRun() {
-  W.genWorld();
+  W.genWorld(themeOf(save.stage).id, save.stage); setTheme(save.stage); musicTrack(areaOf(save.stage));
   E.length = B.length = K.length = M.length = boomQ.length = 0;
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, stage: save.stage, won: false, first: save.runs === 0 });
+  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
+  music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false });
   hull.visible = turret.visible = true; tgt = null;
   save.runs++; persist(); UI.hideAll(); UI.setBoss(-1);
-  if (G.first) UI.hint(I.touch ? jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically') : jaEn('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動　マウスで狙ってクリックで射撃', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move. Aim with the mouse, click to fire'));
-  else UI.hint(null);
+  G.tut = G.first ? 0 : 2; UI.hint(null);
   platform.gameplayStart();
 }
 // 途中で閉じてもスクラップが消えないよう、区切りごとに保存へ移す
@@ -151,7 +168,7 @@ function explode(x, z, R, d) {
 }
 function onBreak(b) {
   if (b.t === W.BARREL) { boomQ.push({ x: b.x, z: b.z, t: 0.07 }); return; }
-  burst(b.x, 0.9, b.z, b.t === W.CRATE ? 9 : 12, b.t === W.CRATE ? 0xc98d4b : 0xcfd6e4, 7, 0.42, 0.7); sfx.crack(); addShake(0.05);
+  burst(b.x, 0.9, b.z, b.t === W.CRATE ? 9 : 12, b.t === W.CRATE ? TH.crateFx : TH.wallFx, 7, 0.42, 0.7); sfx.crack(); addShake(0.05);
   if (b.t === W.CRATE) {
     const q = rnd();
     if (b.gift || q < 0.4) K.push({ x: b.x, z: b.z, v: 1, t: 0, heal: false, vac: false });
@@ -190,13 +207,21 @@ export function pickUp(i) {
 function showResult() {
   bank(); if (G.won) { save.stage++; save.best = Math.max(save.best, save.stage); } persist();
   G.state = 'result';
-  UI.showResult({ win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap }, { buy: buyGar, go: startRun });
+  music('calm'); musicVol(0.45);
+  const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap }, { buy: buyGar, go: startRun });
 }
 function buyGar(k) {
   const lv = save.up[k], c = garCost(lv); if (lv >= GAR_MAX || save.scrap < c) return false;
   save.scrap -= c; save.up[k]++; persist(); sfx.buy(); return true;
 }
 
+// 初回の案内: 「動く → 撃つ」を1つずつ、できるまで消さない（PC）。スマホは動くまで
+function tutorial() {
+  if (G.tut >= 2) return;
+  if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
+  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーで移動', 'Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>'), true); }
+  if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('マウスで狙って、クリック長押しで射撃', 'Aim with the mouse, hold click to fire'), !I.fired); }
+}
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
   let best = null, bd = (S.bspd * S.blife + 1) ** 2;
   for (const e of E) { if (e.dead) continue; const d = (e.x - P.x) ** 2 + (e.z - P.z) ** 2; if (d < bd) { bd = d; best = e; } }
@@ -210,9 +235,14 @@ export function update(dt) {
   const live = G.state === 'play';
   if (live) G.t += dt;
   if (G.inv > 0) G.inv -= dt;
+  // 体力が赤（20%未満）の間は緊迫曲。回復しても少しの間は続けて、曲が細かく切り替わらないようにする
+  if (live) { if (P.hp / S.maxhp < 0.2) G.dng = 2.5; else if (G.dng > 0) G.dng -= dt; music(G.dng > 0 ? 'danger' : 'calm'); musicVol(1); }
+  else { music('calm'); musicVol(0.45); }
   // ---- 自機 ----
   if (live) {
-    const k = 1 - Math.exp(-14 * dt); P.vx += (I.mx * S.speed - P.vx) * k; P.vz += (I.mz * S.speed - P.vz) * k;
+    const wet = W.inWater(P.x, P.z), spd = S.speed * (wet ? 0.62 : 1);
+    const k = 1 - Math.exp(-14 * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
+    if (I.mx || I.mz) { G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.07; burst(P.x - Math.sin(P.ry) * 1.1, 0.15, P.z - Math.cos(P.ry) * 1.1, wet ? 2 : 1, wet ? 0xbfe6ff : TH.dust, wet ? 3 : 1.6, wet ? 0.3 : 0.36, 0.45, wet ? 0.7 : 0.25); } }
     P.x += P.vx * dt; P.z += P.vz * dt;
     if (I.mx || I.mz) P.ry = angLerp(P.ry, Math.atan2(I.mx, I.mz), 1 - Math.exp(-10 * dt));
     W.pushOut(P, 1.0, null);
@@ -225,12 +255,12 @@ export function update(dt) {
     P.cd -= dt; if (fire && P.cd <= 0) { P.cd = 1 / S.rate; shoot(); }
     if (S.regen && P.hp < S.maxhp) P.hp = Math.min(S.maxhp, P.hp + S.regen * dt);
     if (S.mine) { P.mineT -= dt; if (P.mineT <= 0 && (I.mx || I.mz)) { P.mineT = 3.2 - 0.4 * S.mine; if (M.length < 14) M.push({ x: P.x, z: P.z, t: 0 }); } }
-    if (G.first && (I.touch ? I.moved : (I.moved && I.fired)) && G.t > 2) { G.first = false; UI.hint(null); }
+    tutorial();
   }
   P.recoil = Math.max(0, P.recoil - dt * 9);
   // ---- 波 ----
   if (live) {
-    if (G.wave < 0) { if (G.t > 1.2) startWave(0); }
+    if (G.wave < 0) { if (!G.intro && G.t > 0.15) { G.intro = true; UI.banner(jaEn('拠点 ', 'Base ') + G.stage + '　' + jaEn(TH.ja, TH.en), true); } if (G.t > 2.1) startWave(0); }
     else {
       G.wt += dt;
       while (G.queue.length && G.queue[0].t <= G.wt) { const q = G.queue.shift(); if (E.length < 135) spawn(q.k); else { q.t = G.wt + 0.5; G.queue.push(q); break; } }
@@ -249,7 +279,8 @@ export function update(dt) {
     if (e.k === 1) { if (dist < 8) { mx = -dx; mz = -dz; } else if (dist < 13) { mx = -dz * e.strafe; mz = dx * e.strafe; } }
     if (!live) { mx = mz = 0; }
     const dk = Math.exp(-6 * dt); e.kx *= dk; e.kz *= dk;
-    e.x += (mx * d.sp + e.kx) * dt; e.z += (mz * d.sp + e.kz) * dt;
+    const es = d.sp * (W.feat.river && W.inWater(e.x, e.z) ? 0.7 : 1);
+    e.x += (mx * es + e.kx) * dt; e.z += (mz * es + e.kz) * dt;
     e.ry = angLerp(e.ry, e.k === 1 || e.k === 3 ? Math.atan2(dx, dz) : Math.atan2(mx || dx, mz || dz), 1 - Math.exp(-8 * dt));
     W.pushOut(e, e.r, b => W.damageBlock(b, d.chew * dt));
     if (!live) continue;
@@ -277,7 +308,7 @@ export function update(dt) {
     if (Math.abs(b.x) > W.A || Math.abs(b.z) > W.A) { b.dead = true; continue; }
     const blk = W.blockAt(b.x, b.z);
     if (blk) {
-      b.dead = true; burst(b.x, 1.1, b.z, 3, blk.t === W.CRATE ? 0xc98d4b : blk.t === W.WALL ? 0xcfd6e4 : 0xe5484d, 5, 0.22, 0.3);
+      b.dead = true; burst(b.x, 1.1, b.z, 3, blk.t === W.CRATE ? TH.crateFx : blk.t === W.WALL ? TH.wallFx : 0xe5484d, 5, 0.22, 0.3);
       W.damageBlock(blk, b.foe ? 4 : b.dmg); if (!b.foe) { sfx.hit(); if (S.exR) explode(b.x, b.z, S.exR, b.dmg * 0.6); }
       continue;
     }
@@ -328,14 +359,15 @@ export function draw(time) {
   for (const e of E) { const s = Math.min(1, e.born * 3.5) * (e.hitT > 0 ? 1.12 : 1), c = e.hitT > 0 ? 2.6 : 1; instE[e.k].put(e.x, 0, e.z, e.ry, s, s, c, c, c); }
   for (const it of instE) it.end();
   for (const it of instB) it.begin();
-  for (const b of W.blocks) { if (b.hp <= 0) continue; const s = b.hitT > 0 ? 0.9 : 1, c = 0.6 + 0.4 * (b.hp / b.max); instB[b.t].put(b.x, 0, b.z, 0, s, b.hitT > 0 ? 1.08 : 1, c, c, c); }
+  for (const b of W.blocks) { if (b.hp <= 0) continue; const s = b.hitT > 0 ? 0.9 : 1, c = 0.6 + 0.4 * (b.hp / b.max), tl = b.t === W.CRATE ? TH.tc : b.t === W.WALL ? TH.tw : null, tn = tl ? tl[(b.v * tl.length) | 0] : null; instB[b.t].put(b.x, 0, b.z, b.ry, s, (b.hitT > 0 ? 1.08 : 1) * b.sy, tn ? c * tn[0] : c, tn ? c * tn[1] : c, tn ? c * tn[2] : c); }
   for (const it of instB) it.end();
   instBul.begin(); for (const b of B) { if (b.foe) instBul.put(b.x, 1.15, b.z, 0, 1.15, 1.15, 1, 0.22, 0.55); else instBul.put(b.x, 1.15, b.z, 0, 1, 1, 1, 0.93, 0.4); } instBul.end();
   instGear.begin(); instHeal.begin();
   for (const k of K) { const y = 0.55 + Math.sin(time * 5 + k.x) * 0.12; if (k.heal) instHeal.put(k.x, y + 0.2, k.z, time * 2, 1.2); else instGear.put(k.x, y, k.z, time * 3 + k.z, k.v > 1 ? 1.5 : 1); }
   instGear.end(); instHeal.end();
   instMine.begin(); for (const m of M) instMine.put(m.x, 0, m.z, 0, Math.min(1, m.t * 4)); instMine.end();
-  UI.hud({ hp: P.hp, maxhp: S.maxhp, xp: G.xp, need: need(G.lvl), lvl: G.lvl, wave: G.wave, t: G.t, scrap: save.scrap + G.scrap - G.banked, stage: G.stage });
+  UI.legend(!I.touch);
+  UI.hud({ hp: P.hp, maxhp: S.maxhp, xp: G.xp, need: need(G.lvl), lvl: G.lvl, wave: G.wave, t: G.t, scrap: save.scrap + G.scrap - G.banked, stage: G.stage, place: jaEn(TH.ja, TH.en) });
 }
 // テストとボット用の状態
 export function snapshot() {

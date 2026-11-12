@@ -3,6 +3,7 @@ import { THREE, clamp } from './core.js';
 import { A } from './world.js';
 
 export let renderer, scene, camera, light;
+let hemi, outer, fence, gtex, gctx, GS = 1024;
 export const MAT = new THREE.MeshLambertMaterial({ vertexColors: true });
 export const BMAT = new THREE.MeshBasicMaterial({ vertexColors: false });
 let pr = 1, prMax = 1, shake = 0, cx = 0, cz = 0;
@@ -50,24 +51,37 @@ export function initGfx(canvas) {
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   scene = new THREE.Scene(); scene.background = new THREE.Color(0x2f6f5e);
   camera = new THREE.PerspectiveCamera(45, 1, 1, 200);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x7fae8a, 1.25));
+  hemi = new THREE.HemisphereLight(0xffffff, 0x7fae8a, 1.25); scene.add(hemi);
   light = new THREE.DirectionalLight(0xfff1d0, 1.9); light.castShadow = true;
   light.shadow.mapSize.set(1024, 1024); const sc = light.shadow.camera; sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 1; sc.far = 80;
   light.shadow.bias = -0.0015; scene.add(light); scene.add(light.target);
-  // 地面: 2m マスの市松（動いている感じを出す）
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d');
-  g.fillStyle = '#93d481'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#88cb77'; g.fillRect(0, 0, 32, 32); g.fillRect(32, 32, 32, 32);
-  const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(A / 2, A / 2); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: tex }));
+  // 地面: アリーナ全体を1枚のキャンバスに描く（テーマごとに applyTheme で描き直す）
+  let coarse = false; try { coarse = matchMedia('(pointer:coarse)').matches; } catch (e) { /* noop */ }
+  GS = coarse ? 1024 : 2048;
+  const cv = document.createElement('canvas'); cv.width = cv.height = GS; gctx = cv.getContext('2d');
+  gtex = new THREE.CanvasTexture(cv); gtex.colorSpace = THREE.SRGBColorSpace; gtex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: gtex }));
   ground.receiveShadow = true; scene.add(ground);
-  const outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3b8468 })); outer.position.y = -0.05; scene.add(outer);
-  const f = 0x56688f, t = 1.2, L = A * 2 + t * 2;
-  const fence = new THREE.Mesh(geo([
-    { s: [L, 1.4, t], p: [0, 0.7, -A - t / 2], c: f }, { s: [L, 1.4, t], p: [0, 0.7, A + t / 2], c: f },
-    { s: [t, 1.4, L], p: [-A - t / 2, 0.7, 0], c: f }, { s: [t, 1.4, L], p: [A + t / 2, 0.7, 0], c: f }]), MAT);
+  outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3b8468 })); outer.position.y = -0.05; outer.receiveShadow = true; scene.add(outer);
+  const t = 1.2, L = A * 2 + t * 2, w = 0xffffff;
+  fence = new THREE.Mesh(geo([
+    { s: [L, 1.4, t], p: [0, 0.7, -A - t / 2], c: w }, { s: [L, 1.4, t], p: [0, 0.7, A + t / 2], c: w },
+    { s: [t, 1.4, L], p: [-A - t / 2, 0.7, 0], c: w }, { s: [t, 1.4, L], p: [A + t / 2, 0.7, 0], c: w }]), new THREE.MeshLambertMaterial({ color: 0x56688f }));
   fence.castShadow = true; scene.add(fence);
   initParticles(); initRings(); resize();
   window.addEventListener('resize', resize);
+}
+// テーマ（拠点の種類）の色・光・地面の絵を反映する
+export function applyTheme(th, feat) {
+  scene.background.set(th.bg); outer.material.color.set(th.outer); fence.material.color.set(th.fence);
+  hemi.color.set(th.sky); hemi.groundColor.set(th.gnd); hemi.intensity = th.hemiI; light.color.set(th.sun); light.intensity = th.sunI;
+  const g = gctx, S = GS, u = S / (2 * A), X = x => (x + A) * u;
+  let sd = (th.i * 7919 + 13) >>> 0; const r = () => { sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0; return sd / 4294967296; };
+  g.setLineDash([]); g.fillStyle = th.g1; g.fillRect(0, 0, S, S); g.fillStyle = th.g2;
+  for (let j = 0; j < 34; j++) for (let i = 0; i < 34; i++) if ((i + j) & 1) g.fillRect(i * 2 * u, j * 2 * u, 2 * u, 2 * u);
+  for (let i = 0; i < 1100; i++) { g.fillStyle = i & 1 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)'; g.beginPath(); g.ellipse(r() * S, r() * S, (0.15 + r() * 0.6) * u, (0.12 + r() * 0.4) * u, 0, 0, 6.283); g.fill(); }
+  if (th.paint) th.paint(g, { u, X, S, r, feat, A });
+  gtex.needsUpdate = true;
 }
 export function resize() {
   const w = window.innerWidth, h = window.innerHeight; if (!w || !h) return;
@@ -88,8 +102,8 @@ let accT = 0, accN = 0, good = 0;
 export function adapt(ms) {
   accT += ms; accN++; if (accT < 1500) return;
   const avg = accT / accN; accT = 0; accN = 0;
-  if (avg > 24) { good = 0; if (pr > 0.7) { pr = Math.max(0.7, pr * 0.82); renderer.setPixelRatio(pr); resize(); } else if (renderer.shadowMap.enabled) { renderer.shadowMap.enabled = false; light.castShadow = false; } }
-  else if (avg < 15 && pr < prMax) { if (++good >= 4) { good = 0; pr = Math.min(prMax, pr * 1.12); renderer.setPixelRatio(pr); resize(); } }
+  if (avg > 24) { good = 0; if (pr > 0.7) { pr = Math.max(0.7, pr * 0.82); renderer.setPixelRatio(pr); resize(); render(); } else if (renderer.shadowMap.enabled) { renderer.shadowMap.enabled = false; light.castShadow = false; } }
+  else if (avg < 15 && pr < prMax) { if (++good >= 4) { good = 0; pr = Math.min(prMax, pr * 1.12); renderer.setPixelRatio(pr); resize(); render(); } }
 }
 
 // ---- 粒子（箱のインスタンス） ----

@@ -1,5 +1,6 @@
 // 画面の文字と重ね表示（HUD、強化の3択、結果とガレージ）。値が変わったときだけ DOM を触る
-import { jaEn, save } from './core.js';
+import { jaEn, save, persist, TARGET } from './core.js';
+import { themeOf } from './themes.js';
 import { sfx, toggleMute, audioInit } from './audio.js';
 import { GAR, garCost, GAR_MAX, NWAVE } from './game.js';
 
@@ -21,17 +22,23 @@ export function initUi() {
   });
 }
 export function hud(d) {
+  const r = d.hp / d.maxhp, lvl = r < 0.2 ? 'crit' : r < 0.5 ? 'warn' : ''; if (cache.hpc !== lvl) { cache.hpc = lvl; $('hpbar').className = 'bar hp ' + lvl; }
   wid('hpb', d.hp / d.maxhp); txt('hpn', Math.ceil(d.hp) + ' / ' + d.maxhp);
   wid('xpb', d.xp / d.need); txt('lv', 'Lv ' + d.lvl);
   txt('wave', d.wave >= NWAVE ? 'BOSS' : 'WAVE ' + Math.max(1, d.wave + 1) + ' / ' + NWAVE);
-  const s = d.t | 0; txt('time', jaEn('拠点 ', 'Base ') + d.stage + '　' + ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0'));
+  const s = d.t | 0; txt('time', jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0'));
   txt('scr', d.scrap);
 }
 export function setBoss(f) { const w = $('bossw'); if (f < 0) { if (!w.hidden) w.hidden = true; return; } if (w.hidden) w.hidden = false; wid('bossb', f); }
 function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 export function banner(t, big) { const b = $('banner'); b.textContent = t; b.classList.toggle('big', !!big); replay(b, 'show'); }
 export function vignette() { replay($('vig'), 'show'); }
-export function hint(html) { const h = $('hint'); if (!html) { h.hidden = true; return; } h.innerHTML = html; h.hidden = false; }
+export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden = true; return; } if (cache.hint !== html) { cache.hint = html; h.innerHTML = html; } h.classList.toggle('pulse', !!pulse); h.hidden = false; }
+// PC では操作方法を常に左下へ出す（スマホでは出さない）
+export function legend(show) {
+  const k = $('keys'); if (cache.keys === show) return; cache.keys = show; k.hidden = !show;
+  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('移動', 'Move')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('狙う', 'Aim')], [jaEn('<b>クリック長押し</b>', '<b>Hold click</b>'), jaEn('射撃', 'Fire')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+}
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; pickCb = null; resH = null; }
 
 export function showLevelUp(ch, lvl, cb) {
@@ -52,13 +59,27 @@ export function showResult(d, h) {
   const s = d.t | 0, tm = ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0');
   $('rtitle').textContent = d.win ? jaEn('拠点を奪還！', 'Base reclaimed!') : jaEn('撃破された…', 'Tank destroyed');
   $('rtitle').className = 'rtitle ' + (d.win ? 'win' : 'lose');
-  $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
+  $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
   $('stats').innerHTML = [[jaEn('時間', 'Time'), tm], [jaEn('撃破', 'Kills'), d.kills], [jaEn('レベル', 'Level'), d.lvl]].map(a => `<div><small>${a[0]}</small><b>${a[1]}</b></div>`).join('');
   $('earn').innerHTML = `+${d.earned} ${NUT} ` + jaEn('スクラップを持ち帰った', 'scrap brought home');
   $('gart').textContent = jaEn('ガレージで強化', 'Upgrade in the garage');
-  $('go').textContent = d.win ? jaEn('次の拠点へ出撃', 'Attack the next base') : jaEn('もう一度出撃', 'Deploy again');
+  $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); resH.go(); } };
+  if (TARGET === 'artifact') debugStage(d.win);
   drawGarage(); $('res').hidden = false;
+}
+// 試作版だけ：勝たなくても全拠点を見られるようにする拠点えらび
+function debugStage(win) {
+  let el = $('dbg');
+  if (!el) { el = document.createElement('div'); el.id = 'dbg'; el.style.cssText = 'margin-top:10px;display:flex;gap:10px;justify-content:center;align-items:center;font-size:13px;opacity:.85'; $('go').after(el); }
+  const draw = () => {
+    const th = themeOf(save.stage);
+    el.innerHTML = `<button id="dbgL" style="padding:6px 12px">◀</button><span>${jaEn('試作用 拠点えらび', 'Test: pick base')} ${save.stage} ${jaEn(th.ja, th.en)}</span><button id="dbgR" style="padding:6px 12px">▶</button>`;
+    $('dbgL').onclick = () => mv(-1); $('dbgR').onclick = () => mv(1);
+    $('go').textContent = jaEn(`拠点 ${save.stage}「${th.ja}」へ出撃`, `Deploy to base ${save.stage}: ${th.en}`);
+  };
+  const mv = d => { save.stage = Math.max(1, Math.min(60, save.stage + d)); persist(); draw(); };
+  draw();
 }
 function drawGarage() {
   const box = $('gar'); box.innerHTML = ''; let goal = null;

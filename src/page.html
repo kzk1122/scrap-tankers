@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* 配置: 全画面のキャンバスの上に、端へ寄せた HUD と中央のカードを重ねる */
-:root{color-scheme:dark;--bg:#17324a;--ink:#f4f7ff;--dim:#a9b6d6;--panel:#131d36;--line:#2e4170;--gold:#ffc83a;--gold2:#c98a00;--hp:#5fe08a;--xp:#49b8ff;--bad:#ff5b6b;--dark:#0b1224;
+:root{color-scheme:dark;--bg:#17324a;--ink:#f4f7ff;--dim:#a9b6d6;--panel:#131d36;--line:#2e4170;--gold:#ffc83a;--gold2:#c98a00;--hp:#5fe08a;--xp:#49b8ff;--bad:#ff5b6b;--warn:#ffd23f;--dark:#0b1224;
 --font:ui-rounded,"Hiragino Maru Gothic ProN","Arial Rounded MT Bold","Yu Gothic UI",Meiryo,system-ui,sans-serif}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:800;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -16,7 +16,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:8
 .hpw{display:flex;flex-direction:column;gap:3px;max-width:240px;min-width:0}
 .bar{height:16px;border-radius:9px;background:var(--dark);border:2px solid var(--dark);overflow:hidden;box-shadow:0 2px 0 rgba(11,18,36,.4)}
 .bar i{display:block;height:100%;width:100%;border-radius:6px;transition:width .12s linear}
-.bar.hp i{background:var(--hp)}.bar.xp i{background:var(--xp);width:0}.bar.boss i{background:var(--bad)}
+.bar.hp i{background:var(--hp)}.bar.hp.warn i{background:var(--warn)}.bar.hp.crit i{background:var(--bad)}.bar.hp.crit{animation:crit .5s ease-in-out infinite alternate}
+@keyframes crit{to{border-color:var(--bad);box-shadow:0 0 12px var(--bad)}}
+.bar.xp i{background:var(--xp);width:0}.bar.boss i{background:var(--bad)}
 .num{font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .mid{text-align:center;line-height:1.15}
 #wave{font-size:clamp(16px,2.6vw,22px);letter-spacing:.04em}
@@ -34,8 +36,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:8
 #banner.show{animation:ban 1.9s ease-out}
 @keyframes ban{0%{opacity:0;transform:scale(1.5)}12%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
 .grow{flex:1}
-#hint{align-self:center;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:8px 14px;font-size:14px;text-align:center;text-shadow:none;max-width:100%}
+#hint{align-self:center;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 16px;font-size:16px;text-align:center;text-shadow:none;max-width:100%}
 kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-radius:6px;background:var(--ink);color:var(--dark);font:inherit;font-size:12px;text-align:center;box-shadow:0 2px 0 var(--dim)}
+#keys{align-self:flex-start;display:flex;flex-wrap:wrap;gap:4px 12px;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:5px 10px;font-size:12px;color:var(--dim);text-shadow:none;opacity:.92}
+#keys span{white-space:nowrap}#keys b{color:var(--ink)}
+#hint.pulse{border-color:var(--gold);animation:hintp 1s ease-in-out infinite alternate}
+@keyframes hintp{to{box-shadow:0 0 16px var(--gold2)}}
 .xpw{display:flex;align-items:center;gap:8px}
 .xpw .bar{flex:1;height:12px}
 .lv{font-size:14px;min-width:44px}
@@ -82,7 +88,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
   <div id="vig"></div>
   <div id="hud">
     <div class="top">
-      <div class="hpw"><div class="bar hp"><i id="hpb"></i></div><div class="num" id="hpn"></div></div>
+      <div class="hpw"><div class="bar hp" id="hpbar"><i id="hpb"></i></div><div class="num" id="hpn"></div></div>
       <div class="mid"><div id="wave"></div><div id="time"></div></div>
       <div class="right"><div class="scrap"><span class="nut"></span><span id="scr">0</span></div><button id="mute" class="ib" aria-label="Sound">♪</button></div>
     </div>
@@ -90,6 +96,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
     <div id="banner"></div>
     <div class="grow"></div>
     <div id="hint" hidden></div>
+    <div id="keys" hidden></div>
     <div class="xpw"><div class="lv" id="lv">Lv 1</div><div class="bar xp"><i id="xpb"></i></div></div>
   </div>
   <div id="joy" hidden><i></i></div>
