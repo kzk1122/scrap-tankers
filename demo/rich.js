@@ -321,7 +321,7 @@ let shake = 0;
 function explode(x, z, R) {
   const k = R / 3; flash(x, z, 13 * k); ring(x, z, R * 1.5, 0xffc880, 0.35); addScorch(x, z, R * 1.5); shake = Math.min(1.2, shake + 0.25 * k);
   emit(PA, x, 1, z, 0, 0, 0, 0.1, R * 1.3, R * 2.1, [2.4, 1.5, 0.6], [1.2, 0.5, 0.1], 0.8);
-  for (let i = 0; i < 9 * k + 4; i++) { const a = rnd() * 6.283, s = rr(1, 6) * k; emit(PA, x + Math.cos(a) * 0.4, rr(0.5, 1.4), z + Math.sin(a) * 0.4, Math.cos(a) * s, rr(2, 7), Math.sin(a) * s, rr(0.35, 0.75), rr(2.2, 3.6) * k, 0.5, FIRE0, FIRE1, 0.8, -2, 2.5); }
+  for (let i = 0; i < 7 * k + 3; i++) { const a = rnd() * 6.283, s = rr(1, 6) * k; emit(PA, x + Math.cos(a) * 0.4, rr(0.5, 1.4), z + Math.sin(a) * 0.4, Math.cos(a) * s, rr(2, 7), Math.sin(a) * s, rr(0.35, 0.75), rr(1.6, 2.6) * k, 0.4, [2.2, 1.0, 0.25], [0.9, 0.15, 0.02], 0.5, -2, 2.5); }
   for (let i = 0; i < 8 * k + 3; i++) { const a = rnd() * 6.283, s = rr(0.5, 3.5) * k; emit(PS, x + Math.cos(a) * 0.6, rr(0.6, 1.6), z + Math.sin(a) * 0.6, Math.cos(a) * s, rr(1.5, 4.5), Math.sin(a) * s, rr(1.2, 2.4), rr(1, 1.6) * k, rr(3, 4.6) * k, SMK0, SMK1, 0.75, -0.6, 1.4); }
   for (let i = 0; i < 16 * k; i++) { const a = rnd() * 6.283, s = rr(6, 17); emit(PA, x, 0.8, z, Math.cos(a) * s, rr(4, 13), Math.sin(a) * s, rr(0.4, 0.9), 0.22, 0.05, [9, 5, 1.2], [3, 0.6, 0.1], 1, 26, 0.6); }
 }
