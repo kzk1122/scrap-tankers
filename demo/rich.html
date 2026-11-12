@@ -1,0 +1,33 @@
+<title>Scrap Tankers Rich Look</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{color-scheme:dark;--ink:#f6f3ea;--dim:#cfc9b8;--panel:rgba(20,22,18,.62);--line:rgba(255,255,255,.18);--gold:#ffc24a}
+html,body{height:100%}
+body{background:#1c2416;color:var(--ink);font-family:ui-rounded,"Hiragino Maru Gothic ProN","Yu Gothic UI",Meiryo,system-ui,sans-serif;font-weight:700;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#app{position:relative;width:100%;height:100%;overflow:hidden}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+#hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:12px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px))}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.chip{white-space:nowrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 12px;font-size:13px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.chip b{color:var(--gold)}
+#ttl{font-size:15px}#ttl small{display:block;font-size:11px;color:var(--dim);font-weight:600}
+.r{display:flex;gap:8px;align-items:center}
+button.chip{pointer-events:auto;color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+#keys{font-size:12px;color:var(--dim)}
+#joy{position:absolute;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;border:2px solid rgba(255,255,255,.5);background:rgba(0,0,0,.2);pointer-events:none}
+#joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.8);transform:translate(-50%,-50%)}
+#diag{position:absolute;left:8px;bottom:8px;margin:0;padding:6px;background:#000;color:#ff7a7a;font:12px ui-monospace,monospace;white-space:pre-wrap;z-index:9}
+</style>
+<div id="app">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="row">
+      <div class="chip" id="ttl"></div>
+      <div class="r"><div class="chip" id="fps">-- fps</div><button class="chip" id="q"></button></div>
+    </div>
+    <div class="row" style="align-items:flex-end"><div class="chip" id="keys"></div><div class="chip" id="kills"></div></div>
+  </div>
+  <div id="joy" hidden><i></i></div>
+  <pre id="diag" hidden></pre>
+</div>
+<!--JS-->
