@@ -18,21 +18,25 @@ export function angLerp(a, b, k) {
   return a + d * k;
 }
 
-const KEY = 'scrap_tankers_v1';
-function load() {
+export const KEY = 'scrap_tankers_v1';
+function load(str) {
   const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, parts: { hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, own: {}, daily: null, supply: null, mute: false, lang: null };
   try {
-    const j = JSON.parse(localStorage.getItem(KEY) || 'null');
+    const j = JSON.parse(str !== undefined ? str : localStorage.getItem(KEY) || 'null');
     if (j && j.v === 1) { Object.assign(d, j); d.up = Object.assign({ dmg: 0, hp: 0, spd: 0 }, j.up); d.parts = Object.assign({ hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, j.parts); d.own = j.own || {}; }
   } catch (e) { /* 保存が使えなくても遊べる */ }
   return d;
 }
 export const save = load();
+// SDK 側の保存（アカウント連携）を読み込んだとき、同じ save オブジェクトへ上書きする
+export function hydrate(str) { const d = load(str); for (const k of Object.keys(save)) delete save[k]; Object.assign(save, d); }
+let persistCb = null;
+export const onPersist = fn => { persistCb = fn; };
 // 端末の現地時刻での「何日目か」。テストでは setDayOff で日付を進める
 let dayOff = 0;
 export const setDayOff = n => { dayOff = n; };
 export const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000) + dayOff;
-export function persist() { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* noop */ } }
+export function persist() { const s = JSON.stringify(save); try { localStorage.setItem(KEY, s); } catch (e) { /* noop */ } if (persistCb) persistCb(s); }
 
 function pickLang() {
   try { const q = new URLSearchParams(location.search).get('lang'); if (q === 'ja' || q === 'en') return q; } catch (e) { /* noop */ }

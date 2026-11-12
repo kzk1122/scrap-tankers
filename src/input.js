@@ -41,7 +41,7 @@ export function initInput(onFirst) {
 function setNdc(e) { ndc.x = e.clientX / innerWidth * 2 - 1; ndc.y = -(e.clientY / innerHeight) * 2 + 1; }
 
 export function pollInput(camera) {
-  if (I.ext) { I.mx = I.ext.mx || 0; I.mz = I.ext.mz || 0; I.fire = !!I.ext.fire; I.touch = !!I.ext.auto; if (I.ext.ax !== undefined) { I.ax = I.ext.ax; I.az = I.ext.az; } return; }
+  if (I.ext) { I.mx = I.ext.mx || 0; I.mz = I.ext.mz || 0; I.fire = !!I.ext.fire; I.touch = !!I.ext.auto; if (I.mx || I.mz) I.moved = true; if (I.ext.ax !== undefined) { I.ax = I.ext.ax; I.az = I.ext.az; } return; }
   let x = 0, z = 0;
   if (keys.has('a') || keys.has('ArrowLeft')) x -= 1;
   if (keys.has('d') || keys.has('ArrowRight')) x += 1;

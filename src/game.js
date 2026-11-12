@@ -7,6 +7,7 @@ import { I } from './input.js';
 import { sfx, music, musicVol, musicTrack } from './audio.js';
 import * as UI from './ui.js';
 import { platform } from './platform.js';
+import { ev, once, flush } from './metrics.js';
 import * as MT from './meta.js';
 
 const ic = (d, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -76,6 +77,7 @@ function buildTank() {
   if (tank) scene.remove(tank.g);
   tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter', laser: pt.turret === 'laser', armor: pt.hull === 'bulk', light: pt.hull === 'light' });
 }
+const pt0 = () => save.parts;
 const TUR = {
   cannon: { n: 1, dm: 1, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 }, twin: { n: 2, dm: 0.65, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 },
   scatter: { n: 5, dm: 0.42, rm: 0.72, lm: 0.6, sm: 1, sp: 0.17, pierce: 0, c: 0 }, laser: { n: 1, dm: 0.8, rm: 0.9, lm: 0.55, sm: 2.1, sp: 0.08, pierce: 3, c: 2 },
@@ -125,7 +127,7 @@ export function startRun() {
   save.runs++; MT.dailyAdd('runs', 1); persist(); UI.hideAll(); UI.setBoss(-1);
   G.arrived = sup.arrived;
   G.tut = G.first ? 0 : 2; UI.hint(null);
-  platform.gameplayStart();
+  platform.gameplayStart(); ev('start', { run: save.runs, stage: G.stage, parts: [pt0().hull, pt0().turret, pt0().gear].join('/') });
 }
 // 途中で閉じてもスクラップが消えないよう、区切りごとに保存へ移す
 export function bank() { const d = G.scrap - G.banked; if (d > 0) { save.scrap += d; G.banked = G.scrap; persist(); } }
@@ -161,7 +163,7 @@ function hurtE(e, d, kx, kz) {
   if (e.hp <= 0) kill(e);
 }
 function kill(e) {
-  e.dead = true; const d = ET[e.k]; G.kills++; G.scrap += d.sc; MT.dailyAdd('kills', 1); MT.dailyAdd('scrap', d.sc);
+  e.dead = true; const d = ET[e.k]; G.kills++; once('kill', { s: Math.round(G.t) }); G.scrap += d.sc; MT.dailyAdd('kills', 1); MT.dailyAdd('scrap', d.sc);
   burst(e.x, 0.8, e.z, e.k === 0 ? 8 : e.k === 3 ? 60 : 16, d.col, e.k >= 2 ? 11 : 8, e.k >= 2 ? 0.5 : 0.34, 0.6);
   burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7); fxExplode(e.x, e.z, e.k === 0 ? 1.5 : e.k === 1 ? 1.9 : e.k === 2 ? 3 : 6);
   if (e.k >= 2) { ring(e.x, e.z, e.r * 2.2); addShake(e.k === 3 ? 1 : 0.3); sfx.boom(true); } else { sfx.boom(false); addShake(0.06); }
@@ -206,7 +208,7 @@ function openLevelUp() {
   const pool = UPS.filter(d => u[d.id] < d.max);
   if (!pool.length) { G.pend = 0; P.hp = Math.min(S.maxhp, P.hp + 30); return; }
   const ch = []; while (ch.length < 3 && pool.length) ch.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
-  G.state = 'levelup'; G.choices = ch; sfx.lvl();
+  G.state = 'levelup'; G.choices = ch; sfx.lvl(); once('lvl', { s: Math.round(G.t) });
   UI.showLevelUp(ch.map(d => ({ name: jaEn(d.ja[0], d.en[0]), desc: jaEn(d.ja[1], d.en[1]), icon: d.icon, col: d.col, lv: u[d.id] + 1, max: d.max })), G.lvl, pickUp);
 }
 export function pickUp(i) {
@@ -219,6 +221,7 @@ function showResult() {
   const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
   bank(); if (G.won) { save.stage++; save.best = Math.max(save.best, save.stage); } persist();
   G.state = 'result';
+  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, won: G.won ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
   music('calm'); musicVol(0.45);
   const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next }, { buy: buyGar, go: startRun }); G.arrived = null;
 }
@@ -229,6 +232,7 @@ function buyGar(k) {
 
 // 初回の案内: 「動く → 撃つ」を1つずつ、できるまで消さない（PC）。スマホは動くまで
 function tutorial() {
+  if (I.moved) once('move', { s: Math.round(G.t), by: I.touch ? 'touch' : I.auto ? 'click' : 'keys' });
   if (G.tut >= 2) return;
   if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
   if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('クリックした場所へ移動　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Click where you want to go, or move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>'), true); }

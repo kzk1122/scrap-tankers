@@ -4,6 +4,7 @@ import { themeOf } from './themes.js';
 import { sfx, toggleMute, audioInit } from './audio.js';
 import { GAR, garCost, GAR_MAX, NWAVE } from './game.js';
 import * as MT from './meta.js';
+import { ev } from './metrics.js';
 
 const $ = id => document.getElementById(id);
 const cache = {};
@@ -69,7 +70,7 @@ export function showResult(d, h) {
   else if (d.supply) sp = d.supply === 'scrap' ? jaEn(`明日届く補給便: <b>スクラップ ${MT.SUP_SCRAP}</b>`, `Tomorrow's supply drop: <b>${MT.SUP_SCRAP} scrap</b>`) : jaEn(`明日届く補給便: <b>${MT.pname(d.supply)}</b>（${MT.pdesc(d.supply)}）`, `Tomorrow's supply drop: <b>${MT.pname(d.supply)}</b> (${MT.pdesc(d.supply)})`);
   $('supply').hidden = !sp; $('supply').innerHTML = sp; tab = 'up';
   $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
-  $('go').onclick = () => { if (armed() && resH) { sfx.ui(); resH.go(); } };
+  $('go').onclick = () => { if (armed() && resH) { sfx.ui(); ev('again', { s: Math.round((performance.now() - openAt) / 1000) }); resH.go(); } };
   if (TARGET === 'artifact') debugStage(d.win);
   drawAll(); $('res').hidden = false;
 }
@@ -93,7 +94,7 @@ function drawAll() {
   const canUp = GAR.some(g => save.up[g.k] < GAR_MAX && save.scrap >= garCost(save.up[g.k])), canPt = MT.PARTS.some(p => !MT.owned(p.id) && save.scrap >= p.cost);
   const T = [['up', jaEn('強化', 'Upgrades'), canUp], ['parts', jaEn('パーツ', 'Parts'), canPt], ['daily', jaEn('デイリー ', 'Daily ') + done + '/3', false]];
   $('tabs').innerHTML = T.map(t => `<button class="tb${tab === t[0] ? ' on' : ''}" id="tb_${t[0]}">${t[1]}${t[2] ? '<span class="dot"></span>' : ''}</button>`).join('');
-  for (const t of T) { $('tb_' + t[0]).onclick = () => { tab = t[0]; sfx.ui(); drawAll(); }; $('tab_' + t[0]).hidden = tab !== t[0]; }
+  for (const t of T) { $('tb_' + t[0]).onclick = () => { tab = t[0]; ev('tab', { k: tab }); sfx.ui(); drawAll(); }; $('tab_' + t[0]).hidden = tab !== t[0]; }
   $('total').innerHTML = jaEn('所持 ', 'You have ') + NUT + save.scrap;
   $('goal').textContent = goal ? jaEn(`あと ${goal.c - save.scrap} スクラップで「${goal.ja}」`, `${goal.c - save.scrap} more scrap for ${goal.en}`) : '';
 }
@@ -104,7 +105,7 @@ function drawGarage() {
     if (!max && !can && (!goal || c < goal.c)) goal = { c, ja: g.ja + ' Lv ' + (lv + 1), en: g.en + ' Lv ' + (lv + 1) };
     const b = document.createElement('button'); b.className = 'gbtn' + (can ? ' can' : ''); b.id = 'gar_' + g.k; b.disabled = !can;
     b.innerHTML = `<b>${jaEn(g.ja, g.en)} <i>Lv ${lv}</i></b><small>${g.d}</small><span class="cost">${max ? 'MAX' : NUT + c}</span>`;
-    b.addEventListener('click', () => { if (resH && resH.buy(g.k)) drawAll(); });
+    b.addEventListener('click', () => { if (resH && resH.buy(g.k)) { ev('buy', { k: g.k, lv: save.up[g.k] }); drawAll(); } });
     box.appendChild(b);
   });
 }
@@ -118,7 +119,7 @@ function drawParts() {
       if (!own && !can && (!goal || p.cost < goal.c)) goal = { c: p.cost, ja: p.ja[0], en: p.en[0] };
       const b = document.createElement('button'); b.className = 'gbtn' + (on ? ' on' : own ? ' own' : can ? ' can' : ''); b.id = 'part_' + p.id; b.disabled = !own && !can;
       b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : NUT + p.cost}</span>`;
-      b.addEventListener('click', () => { if (own ? MT.equip(p.id) : MT.buyPart(p.id)) { sfx.buy(); drawAll(); } });
+      b.addEventListener('click', () => { if (own ? MT.equip(p.id) : MT.buyPart(p.id)) { ev(own ? 'equip' : 'part', { k: p.id }); sfx.buy(); drawAll(); } });
       row.appendChild(b);
     }
     box.appendChild(row);
