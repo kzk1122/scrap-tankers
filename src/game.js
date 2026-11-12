@@ -59,7 +59,7 @@ export function initGame() {
   const ph = () => new THREE.BoxGeometry(1, 1, 1); // テーマごとに setTheme() で差し替える
   instB = [new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 120, { shadow: true })];
   instFar = new Inst(ph(), 64, { shadow: true }); instSmall = new Inst(ph(), 240, {});
-  instBul = new Inst(new THREE.SphereGeometry(1, 8, 6).scale(0.13, 0.13, 0.6), 420, { mat: BMAT });
+  instBul = new Inst(new THREE.SphereGeometry(1, 8, 6).scale(0.1, 0.1, 0.6), 420, { mat: BMAT });
   instGear = new Inst(geo([{ s: [0.7, 0.2, 0.7], p: [0, 0, 0], c: 0xffd23f, cyl: 6 }, { s: [0.3, 0.24, 0.3], p: [0, 0, 0], c: 0xb8860b, cyl: 6 }]), 360, {});
   instHeal = new Inst(geo([{ s: [0.9, 0.3, 0.3], p: [0, 0, 0], c: 0x5fe08a }, { s: [0.3, 0.3, 0.9], p: [0, 0, 0], c: 0x5fe08a }]), 20, {});
   instMine = new Inst(geo([{ s: [0.9, 0.22, 0.9], p: [0, 0.11, 0], c: 0x39405c, cyl: 8 }, { s: [0.3, 0.14, 0.3], p: [0, 0.28, 0], c: 0xff5b6b, cyl: 6 }]), 16, {});
@@ -355,7 +355,7 @@ export function draw(time) {
   for (const it of instB) it.begin();
   for (const b of W.blocks) { if (b.hp <= 0) continue; const s = b.hitT > 0 ? 0.9 : 1, c = 0.6 + 0.4 * (b.hp / b.max), tl = b.t === W.CRATE ? TH.tc : b.t === W.WALL ? TH.tw : null, tn = tl ? tl[(b.v * tl.length) | 0] : null; instB[b.t].put(b.x, 0, b.z, b.ry, s, (b.hitT > 0 ? 1.08 : 1) * b.sy, tn ? c * tn[0] : c, tn ? c * tn[1] : c, tn ? c * tn[2] : c); }
   for (const it of instB) it.end();
-  instBul.begin(); for (const b of B) { const ry = Math.atan2(b.vx, b.vz); if (b.foe) instBul.put(b.x, 1.15, b.z, ry, 1.3, 1.3, 3.2, 0.35, 1.2); else instBul.put(b.x, 1.15, b.z, ry, 1, 1, 3, 1.7, 0.45); } instBul.end();
+  instBul.begin(); for (const b of B) { const ry = Math.atan2(b.vx, b.vz); if (b.foe) instBul.put(b.x, 1.15, b.z, ry, 1.3, 1.3, 2.0, 0.22, 0.75); else instBul.put(b.x, 1.15, b.z, ry, 1, 1, 1.9, 1.05, 0.25); } instBul.end();
   instGear.begin(); instHeal.begin();
   for (const k of K) { const y = 0.55 + Math.sin(time * 5 + k.x) * 0.12; if (k.heal) instHeal.put(k.x, y + 0.2, k.z, time * 2, 1.2); else instGear.put(k.x, y, k.z, time * 3 + k.z, k.v > 1 ? 1.5 : 1); }
   instGear.end(); instHeal.end();

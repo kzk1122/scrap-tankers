@@ -183,7 +183,7 @@ export function initGfx(canvas) {
   gtex = new THREE.CanvasTexture(cv); gtex.colorSpace = THREE.SRGBColorSpace; gtex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
   noiseCv = canvasOf(256, (u, v) => { const n = fbm(u * 6, v * 6, 4, 6); return [n, n, n]; });
   const nm = normalTex(256, (u, v) => fbm(u * 8, v * 8, 4, 8) + 0.4 * fbm(u * 32, v * 32, 2, 32), 5), nm2 = nm.clone(); nm.repeat.set(14, 14); nm2.repeat.set(80, 80);
-  ground = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2).rotateX(-Math.PI / 2), patch(new THREE.MeshStandardMaterial({ map: gtex, normalMap: nm, normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.94 }), { detail: 2 }));
+  ground = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2).rotateX(-Math.PI / 2), patch(new THREE.MeshStandardMaterial({ map: gtex, normalMap: nm, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 0.94 }), { detail: 2 }));
   ground.receiveShadow = true; scene.add(ground);
   outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), patch(new THREE.MeshStandardMaterial({ color: 0x3b8468, normalMap: nm2, normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.94 }), { detail: 1 })); outer.position.y = -0.05; outer.receiveShadow = true; scene.add(outer);
   const t = 1.2, L = A * 2 + t * 2, w = 0xffffff;
@@ -394,9 +394,9 @@ export function fxExplode(x, z, Rr) {
   for (let i = 0; i < 14 * k * busy; i++) { const a = R() * 6.283, s = rr(6, 17); emit(PA, x, 0.8, z, Math.cos(a) * s, rr(4, 13), Math.sin(a) * s, rr(0.4, 0.9), 0.22, 0.05, SPK0, SPK1, 1, 26, 0.6); }
 }
 export function fxMuzzle(x, z, ang, hex) {
-  const s = Math.sin(ang), c = Math.cos(ang), col = hex ? rgb(hex).map(v => v * 6) : [9, 6, 2.5]; flash(x, z, 9, hex || 0xffc070);
-  emit(PA, x, 1.2, z, 0, 0, 0, 0.07, 1.3, 2.1, col, [col[0] * 0.5, col[1] * 0.3, col[2] * 0.2], 1);
-  for (let i = 0; i < 3; i++) emit(PA, x, 1.2, z, s * rr(4, 12) + rr(-2, 2), rr(-0.5, 1.5), c * rr(4, 12) + rr(-2, 2), rr(0.1, 0.2), 0.6, 0.12, FIRE0, FIRE1, 0.9, 0, 4);
+  const s = Math.sin(ang), c = Math.cos(ang), col = hex ? rgb(hex).map(v => v * 2.4) : [2.6, 1.7, 0.7]; flash(x, z, 4, hex || 0xffc070);
+  emit(PA, x, 1.2, z, 0, 0, 0, 0.06, 0.7, 1.3, col, [col[0] * 0.5, col[1] * 0.3, col[2] * 0.2], 1);
+  for (let i = 0; i < 3; i++) emit(PA, x, 1.2, z, s * rr(4, 12) + rr(-2, 2), rr(-0.5, 1.5), c * rr(4, 12) + rr(-2, 2), rr(0.1, 0.2), 0.45, 0.1, FIRE0, FIRE1, 0.7, 0, 4);
   if (PS.list.length < PS.cap * 0.5) emit(PS, x, 1.2, z, s * rr(1, 4), rr(0.3, 1.2), c * rr(1, 4), rr(0.4, 0.8), 0.35, rr(1.0, 1.6), [0.75, 0.72, 0.68], [0.5, 0.5, 0.5], 0.26, -0.5, 2.5);
 }
 export function fxSparks(x, z, n = 5, hex) { const c0 = hex ? rgb(hex).map(v => v * 7) : SPK0; for (let j = 0; j < n; j++) { const a = R() * 6.283; emit(PA, x, 1.2, z, Math.cos(a) * rr(3, 10), rr(2, 8), Math.sin(a) * rr(3, 10), rr(0.2, 0.45), 0.2, 0.04, c0, SPK1, 1, 24, 0.5); } }
