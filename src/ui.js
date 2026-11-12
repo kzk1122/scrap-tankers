@@ -65,6 +65,7 @@ export function showResult(d, h) {
   $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
   $('stats').innerHTML = [[jaEn('時間', 'Time'), tm], [jaEn('撃破', 'Kills'), d.kills], [jaEn('レベル', 'Level'), d.lvl]].map(a => `<div><small>${a[0]}</small><b>${a[1]}</b></div>`).join('');
   $('earn').innerHTML = `+${d.earned} ${NUT} ` + jaEn('スクラップを持ち帰った', 'scrap brought home');
+  drawMap(d);
   let sp = '';
   if (d.arrived) sp = d.arrived === 'scrap' ? jaEn(`補給便が届いた！ <b>スクラップ +${MT.SUP_SCRAP}</b>`, `Supply drop arrived: <b>+${MT.SUP_SCRAP} scrap</b>`) : jaEn(`補給便が届いた！ <b>${MT.pname(d.arrived)}</b> を装備した`, `Supply drop arrived: <b>${MT.pname(d.arrived)}</b> equipped`);
   else if (d.supply) sp = d.supply === 'scrap' ? jaEn(`明日届く補給便: <b>スクラップ ${MT.SUP_SCRAP}</b>`, `Tomorrow's supply drop: <b>${MT.SUP_SCRAP} scrap</b>`) : jaEn(`明日届く補給便: <b>${MT.pname(d.supply)}</b>（${MT.pdesc(d.supply)}）`, `Tomorrow's supply drop: <b>${MT.pname(d.supply)}</b> (${MT.pdesc(d.supply)})`);
@@ -86,6 +87,23 @@ function debugStage(win) {
   };
   const mv = d => { save.stage = Math.max(1, Math.min(60, save.stage + d)); persist(); draw(); };
   draw();
+}
+// 奪還マップ: いまのエリアの 6 拠点と、全体（5 エリア 30 拠点）の進み具合。勝った直後は奪った拠点が塗り変わる
+export const AREAS = 5;
+function drawMap(d) {
+  const got = save.stage - 1, ar = Math.floor(Math.max(0, d.win ? d.stage - 1 : got) / 6), base = ar * 6, tot = AREAS * 6;
+  let h = `<div class="mh"><span>${jaEn(`エリア ${ar + 1}`, `Area ${ar + 1}`)}　<b>${jaEn('奪還', 'Reclaimed')} ${Math.max(0, Math.min(6, got - base))} / 6</b></span><span>${jaEn('全体', 'Total')} <b>${Math.min(got, tot)} / ${tot}</b></span></div><div class="mrow"><i class="fill" id="mfill"></i>`;
+  for (let i = 1; i <= 6; i++) {
+    const st = base + i, th = themeOf(st), g = st <= got, c = st === got + 1;
+    h += `<div class="mn${g ? ' got' : c ? ' cur' : ''}${d.win && st === d.stage ? ' flip' : ''}"><u>${g ? '✓' : st}</u>${jaEn(th.ja, th.en.split(' ')[0])}</div>`;
+  }
+  h += '</div><div class="mar">';
+  for (let a = 0; a < AREAS; a++) h += `<s class="${a === ar ? 'now' : ''}"><b style="width:${Math.max(0, Math.min(6, got - a * 6)) / 6 * 100}%"></b></s>`;
+  const left = base + 6 - got;
+  h += `<span>${got >= tot ? jaEn('全拠点を奪還！', 'All bases reclaimed!') : left <= 0 ? jaEn(`エリア ${ar + 1} を制圧！ 次はエリア ${ar + 2}`, `Area ${ar + 1} secured! Next: Area ${ar + 2}`) : jaEn(`あと ${left} 拠点でエリア ${ar + 1} を制圧`, `${left} more to secure Area ${ar + 1}`)}</span></div>`;
+  $('map').innerHTML = h;
+  const n = Math.max(0, Math.min(6, got - base)), w = n <= 1 ? 0 : (n - 1) / 5 * 84, f = $('mfill');
+  f.style.width = (d.win && n > 1 ? (n - 2) / 5 * 84 : w) + '%'; requestAnimationFrame(() => requestAnimationFrame(() => { f.style.width = w + '%'; }));
 }
 let tab = 'up', goal = null;
 function drawAll() {
