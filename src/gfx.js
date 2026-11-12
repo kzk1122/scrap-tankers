@@ -73,7 +73,7 @@ export function geo(parts) {
   for (const p of parts) {
     const mn = Math.min(p.s[0], p.s[1], p.s[2]);
     const g = p.cyl ? new THREE.CylinderGeometry(p.s[0] / 2, (p.s[2] || p.s[0]) / 2, p.s[1], p.cyl) : mn >= 0.5 ? new RoundedBoxGeometry(p.s[0], p.s[1], p.s[2], 1, Math.min(0.09, mn * 0.12)) : new THREE.BoxGeometry(p.s[0], p.s[1], p.s[2]);
-    if (p.ry) g.rotateY(p.ry); g.translate(p.p[0], p.p[1], p.p[2]); pushGeo(o, g, c.set(p.c));
+    if (p.ry) g.rotateY(p.ry); g.translate(p.p[0], p.p[1], p.p[2]); c.set(p.c); if (p.e) c.multiplyScalar(p.e); pushGeo(o, g, c); // e: 明るさ倍率（窓の明かりなど、光のにじみに乗る）
   }
   return finish(o);
 }
@@ -250,7 +250,7 @@ export function applyTheme(th, feat) {
   g.globalCompositeOperation = 'soft-light'; g.globalAlpha = 0.7; g.drawImage(noiseCv, 0, 0, S, S); g.globalAlpha = 0.5; g.drawImage(noiseCv, 0, 0, S / 4, S / 4, 0, 0, S, S);
   g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   gtex.needsUpdate = true;
-  setGrass(th); setWater(feat);
+  setGrass(th); setWater(feat); sea.visible = !!th.sea; outer.visible = !th.sea;
 }
 export function addShake(a) { shake = Math.min(1.2, shake + a); }
 export function camUpdate(px, pz, dt, snap) {
@@ -291,14 +291,14 @@ function setGrass(th) {
 }
 
 // ---------- 水（川） ----------
-let water, wmask, wctx;
+let water, sea, wmask, wctx;
 function initWater() {
   const c = document.createElement('canvas'); c.width = c.height = 256; wctx = c.getContext('2d'); wmask = new THREE.CanvasTexture(c);
-  water = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, uniforms: { uMask: { value: wmask }, uN: U.cloud, uT: U.t, uSun: { value: SUN } },
+  const wm = all => new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, uniforms: { uAll: { value: all }, uMask: { value: wmask }, uN: U.cloud, uT: U.t, uSun: { value: SUN } },
     vertexShader: 'varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
-    fragmentShader: `uniform sampler2D uMask, uN; uniform float uT; uniform vec3 uSun; varying vec2 vUv; varying vec3 vW;
-      void main(){ float d = texture2D(uMask, vUv).r; if (d <= 0.02) discard;
+    fragmentShader: `uniform sampler2D uMask, uN; uniform float uT, uAll; uniform vec3 uSun; varying vec2 vUv; varying vec3 vW;
+      void main(){ float d = max(texture2D(uMask, vUv).r, uAll); if (d <= 0.02) discard;
         vec2 w = vW.xz*0.16; vec3 n1 = texture2D(uN, w + uT*vec2(0.06,0.01)).rgb, n2 = texture2D(uN, w*1.9 + uT*vec2(0.09,-0.02)).rgb;
         vec2 nn = (n1.rg + n2.gb - 1.)*0.3; vec3 N = normalize(vec3(nn.x, 1., nn.y)); vec3 V = normalize(cameraPosition - vW);
         float fr = pow(1. - max(dot(N,V),0.), 3.)*0.8 + 0.06; float caus = smoothstep(0.62,0.9, n1.b + n2.r - 0.45)*(1.-smoothstep(0.1,0.8,d));
@@ -307,7 +307,9 @@ function initWater() {
         col += vec3(1.,0.88,0.65)*pow(max(dot(Rf,uSun),0.), 420.)*3.;
         float foam = smoothstep(0.16, 0.03, d + (n1.b-0.5)*0.14 + 0.03*sin(uT*1.4 + vW.x*0.8)); col = mix(col, vec3(0.92), foam*0.85);
         gl_FragColor = vec4(col, mix(0.55,0.95,smoothstep(0.02,0.3,d))); }`,
-  }));
+  });
+  water = new THREE.Mesh(new THREE.PlaneGeometry(A * 2, A * 2).rotateX(-Math.PI / 2), wm(0));
+  sea = new THREE.Mesh(new THREE.PlaneGeometry(520, 520).rotateX(-Math.PI / 2), wm(0.9)); sea.position.y = -0.5; sea.visible = false; scene.add(sea);
   water.position.y = 0.04; water.renderOrder = 1; water.visible = false; scene.add(water);
 }
 function setWater(feat) {
@@ -402,7 +404,16 @@ export function fxMuzzle(x, z, ang, hex) {
 export function fxSparks(x, z, n = 5, hex) { const c0 = hex ? rgb(hex).map(v => v * 7) : SPK0; for (let j = 0; j < n; j++) { const a = R() * 6.283; emit(PA, x, 1.2, z, Math.cos(a) * rr(3, 10), rr(2, 8), Math.sin(a) * rr(3, 10), rr(0.2, 0.45), 0.2, 0.04, c0, SPK1, 1, 24, 0.5); } }
 export function fxDust(x, z, hex, n = 1, big = 1) { const c = rgb(hex); for (let i = 0; i < n; i++) emit(PS, x + rr(-0.3, 0.3), 0.25, z + rr(-0.3, 0.3), rr(-1, 1) * big, rr(0.3, 1.2) * big, rr(-1, 1) * big, rr(0.6, 1.1), 0.45 * big, rr(1.2, 2.0) * big, c, c, 0.3, 0, 1.5); }
 export function fxSplash(x, z, n = 2) { for (let i = 0; i < n; i++) emit(PS, x + rr(-0.6, 0.6), 0.2, z + rr(-0.6, 0.6), rr(-1.5, 1.5), rr(2, 4.5), rr(-1.5, 1.5), rr(0.4, 0.7), 0.3, 1.0, [0.85, 0.95, 1], [0.7, 0.9, 1], 0.55, 11, 0.5); }
-export function fxMote(x, z) { emit(PA, x + rr(-24, 24), rr(0.6, 4), z + rr(-16, 16), rr(-0.3, 0.3), rr(0.05, 0.3), rr(-0.3, 0.3), rr(2.5, 5), 0.1, 0.16, [2.2, 1.9, 1.0], [2.2, 1.9, 1.0], 0.5, 0, 0); }
+// 拠点ごとの空気感: 光の粒・雪・砂ぼこり・火の粉
+export function fxAmb(kind, x, z, dt) {
+  const lo = coarse ? 0.5 : 1;
+  if (kind === 'none') return;
+  if (kind === 'snow') { if (R() < dt * 70 * lo) emit(PS, x + rr(-30, 26), rr(9, 13), z + rr(-22, 16), rr(1, 2.4), rr(-4.5, -3), rr(0.2, 1), 3.2, 0.2, 0.2, [1, 1, 1], [1, 1, 1], 0.9, 0, 0); return; }
+  if (kind === 'sand') { if (R() < dt * 22 * lo) emit(PS, x + rr(-34, 20), rr(0.3, 1.6), z + rr(-18, 16), rr(6, 10), rr(0, 0.5), rr(-1, 1.5), 1.8, 0.6, rr(1.6, 2.6), [0.93, 0.84, 0.62], [0.93, 0.84, 0.62], 0.13, 0, 0); return; }
+  if (kind === 'ember') { if (R() < dt * 14 * lo) emit(PA, x + rr(-24, 24), rr(0.4, 2.5), z + rr(-16, 16), rr(-0.8, 0.8), rr(0.8, 2.4), rr(-0.8, 0.8), rr(1.8, 3), 0.1, 0.03, [5, 1.6, 0.3], [2, 0.3, 0.05], 0.9, 0, 0); return; }
+  if (R() < dt * 7) fxMote(x, z);
+}
+function fxMote(x, z) { emit(PA, x + rr(-24, 24), rr(0.6, 4), z + rr(-16, 16), rr(-0.3, 0.3), rr(0.05, 0.3), rr(-0.3, 0.3), rr(2.5, 5), 0.1, 0.16, [2.2, 1.9, 1.0], [2.2, 1.9, 1.0], 0.5, 0, 0); }
 function addScorch(x, z, Rr) { const i = scorch.n++ % 48; M4.compose(V3.set(x, 0.03, z), Q.setFromEuler(EU.set(0, R() * 6.283, 0)), SC.set(Rr, 1, Rr)); scorch.im.setMatrixAt(i, M4); scorch.im.count = Math.min(48, scorch.n); scorch.im.instanceMatrix.needsUpdate = true; }
 export function clearMarks() { scorch.n = 0; scorch.im.count = 0; marks.born.fill(-99); marks.g.attributes.aB.needsUpdate = true; PA.list.length = PS.list.length = parts.length = 0; }
 export function addMark(x, z, ry, len, w = 0.78) {
