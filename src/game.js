@@ -7,6 +7,7 @@ import { I } from './input.js';
 import { sfx, music, musicVol, musicTrack } from './audio.js';
 import * as UI from './ui.js';
 import { platform } from './platform.js';
+import { ev, once, flush } from './metrics.js';
 import * as MT from './meta.js';
 
 const ic = (d, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -25,6 +26,13 @@ export const UPS = [
   { id: 'bounce', max: 3, col: '#6ad0ff', ja: ['跳弾', '当たると近くの敵へ跳ねる'], en: ['Ricochet', 'Shells bounce to a nearby enemy'], icon: ic('<path d="M2 18L9 6l6 10 7-12"/>') },
   { id: 'mine', max: 4, col: '#ffa24d', ja: ['地雷', '走りながら地雷をまく'], en: ['Mines', 'Drop mines as you drive'], icon: ic('<circle cx="12" cy="13" r="6"/><path d="M12 3v4M4 13H2M22 13h-2M5.5 6.5l2 2M18.5 6.5l-2 2"/>') },
   { id: 'long', max: 3, col: '#c9d4ff', ja: ['長砲身', '射程と弾速 +20%'], en: ['Long Barrel', 'Range & shell speed +20%'], icon: ic('<path d="M3 12h14M13 7l5 5-5 5M21 5v14"/>') },
+  { id: 'crit', max: 4, col: '#ffd23f', ja: ['会心弾', '12% の確率でダメージ 2.5 倍'], en: ['Critical Shells', '12% chance of 2.5x damage'], icon: ic('<path d="M12 2l3 7 7 1-5 5 1.5 7L12 18l-6.5 4L7 15 2 10l7-1z"/>', 1) },
+  { id: 'frost', max: 3, col: '#9fe8ff', ja: ['冷凍弾', '当てた敵を遅くする'], en: ['Cryo Shells', 'Hits slow enemies down'], icon: ic('<path d="M12 2v20M3.5 7l17 10M20.5 7l-17 10"/>') },
+  { id: 'orbit', max: 3, col: '#d0d6e2', ja: ['回転ノコ', '戦車の周りを刃が回る'], en: ['Saw Blades', 'Blades circle your tank'], icon: ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>') },
+  { id: 'vamp', max: 3, col: '#ff6f91', ja: ['回収修理', '敵を倒すと HP 回復'], en: ['Salvage Repair', 'Kills restore HP'], icon: ic('<path d="M12 21s-8-5.5-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 10c0 5.5-8 11-8 11z"/>', 1) },
+  { id: 'salvo', max: 3, col: '#ff9d3c', ja: ['全方位斉射', '数秒ごとに全方向へ撃つ'], en: ['Nova Salvo', 'Fires in all directions every few seconds'], icon: ic('<circle cx="12" cy="12" r="2.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3.5 3.5M15.5 15.5L19 19M19 5l-3.5 3.5M8.5 15.5L5 19"/>') },
+  { id: 'scav', max: 3, col: '#f5c542', ja: ['回収屋', 'スクラップ +15%'], en: ['Scavenger', 'Scrap +15%'], icon: ic('<path d="M12 2l8.5 5v10L12 22 3.5 17V7z"/><circle cx="12" cy="12" r="3"/>') },
+  { id: 'plate', max: 3, col: '#7fb0c8', ja: ['反応装甲', '受けるダメージ -10%'], en: ['Reactive Armor', 'Damage taken -10%'], icon: ic('<path d="M4 4h16v9c0 4-3.5 6.5-8 8-4.5-1.5-8-4-8-8z"/><path d="M8 10h8M8 14h8"/>') },
 ];
 // ガレージの永続強化（スクラップで買う）
 export const GAR = [
@@ -32,13 +40,21 @@ export const GAR = [
 export const garCost = lv => Math.round(15 * Math.pow(1.5, lv));
 export const GAR_MAX = 10;
 
-// 敵: 0 ドローン / 1 砲手 / 2 ブルート / 3 ボス
+// 敵: 0 ドローン / 1 砲手 / 2 ブルート / 3 ボス（弾幕）/ 4 突撃車 / 5 自爆車 / 6 迫撃車 / 7 ボス（突進）/ 8 ボス（要塞）
 const ET = [
   { hp: 20, sp: 4.6, r: 0.9, dmg: 8, xp: 1, sc: 1, chew: 14, col: 0x8a5cf0 },
   { hp: 34, sp: 3.2, r: 1.0, dmg: 6, xp: 2, sc: 2, chew: 14, col: 0xe0457b, shoot: 2.3 },
   { hp: 130, sp: 2.7, r: 1.5, dmg: 18, xp: 5, sc: 5, chew: 90, col: 0xd9413c },
-  { hp: 1100, sp: 2.3, r: 2.7, dmg: 25, xp: 30, sc: 50, chew: 9999, col: 0x2b3158, boss: true },
+  { hp: 1100, sp: 2.3, r: 2.7, dmg: 25, xp: 30, sc: 50, chew: 9999, col: 0x2b3158, boss: 1 },
+  { hp: 14, sp: 7.2, r: 0.8, dmg: 7, xp: 1, sc: 1, chew: 10, col: 0xb7d43a },
+  { hp: 42, sp: 4.1, r: 1.0, dmg: 20, xp: 3, sc: 3, chew: 30, col: 0x19a59a },
+  { hp: 48, sp: 2.8, r: 1.05, dmg: 10, xp: 3, sc: 3, chew: 14, col: 0x3a55b8, shoot: 3.8 },
+  { hp: 950, sp: 3.0, r: 2.5, dmg: 26, xp: 30, sc: 50, chew: 9999, col: 0x6a1f2e, boss: 2 },
+  { hp: 1350, sp: 1.5, r: 3.0, dmg: 25, xp: 30, sc: 50, chew: 9999, col: 0x1f4038, boss: 3 },
 ];
+const BOSSK = [3, 7, 8];
+// 追加の敵（突撃 / 自爆 / 迫撃）は拠点 2 / 3 / 4 から出る
+const XWAVES = [[0, 0, 0], [2, 0, 0], [3, 1, 0], [4, 1, 1], [5, 2, 1], [6, 2, 2]], XFROM = [2, 3, 4];
 const WAVES = [[8, 0, 0], [14, 2, 0], [18, 4, 1], [22, 6, 2], [28, 8, 3], [34, 10, 5]];
 const WDUR = 26;
 export const NWAVE = WAVES.length;
@@ -48,7 +64,7 @@ export const P = { x: 0, z: 0 };
 export const S = {};
 const E = [], B = [], K = [], M = [], boomQ = [];
 let drone, shield, tankKey = '';
-let u = {}, TH = null, thKey = '', instFar, instSmall, tank, instE, instB, instBul, instGear, instHeal, instMine, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
+let u = {}, TH = null, thKey = '', instFar, instSmall, tank, instE, instB, instBul, instGear, instHeal, instMine, instSaw, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
 
 export function initGame() {
   drone = new THREE.Mesh(geo([{ s: [0.7, 0.22, 0.7], p: [0, 0, 0], c: 0xffb21e }, { s: [1.3, 0.06, 0.16], p: [0, 0.16, 0], c: 0x39405c }, { s: [0.16, 0.06, 1.3], p: [0, 0.16, 0], c: 0x39405c }, { s: [0.2, 0.16, 0.5], p: [0, -0.12, 0.3], c: 0x39405c }]), MAT);
@@ -59,7 +75,13 @@ export function initGame() {
     new Inst(tankGeo(0xd23a6e, { lite: true, long: true, scale: 0.64 }), 50, { shadow: true }),
     new Inst(tankGeo(0xc8362f, { plow: true, scale: 0.98, tur: 0xe86a58 }), 30, { shadow: true }),
     new Inst(tankGeo(0x2b3158, { twin: true, crown: true, plow: true, scale: 1.8, tur: 0xc23a6a }), 2, { shadow: true }),
+    new Inst(tankGeo(0xb7d43a, { lite: true, light: true, short: true, scale: 0.46 }), 60, { shadow: true }),
+    new Inst(tankGeo(0x19a59a, { lite: true, short: true, armor: true, scale: 0.7, tur: 0xff8a2a }), 30, { shadow: true }),
+    new Inst(tankGeo(0x3a55b8, { lite: true, long: true, scale: 0.78, tur: 0x8fa6ff }), 30, { shadow: true }),
+    new Inst(tankGeo(0x6a1f2e, { crown: true, plow: true, light: true, scale: 1.65, tur: 0xe8b62a }), 2, { shadow: true }),
+    new Inst(tankGeo(0x1f4038, { twin: true, crown: true, armor: true, scale: 2.05, tur: 0x3fae8a }), 2, { shadow: true }),
   ];
+  instSaw = new Inst(geo([{ s: [1.2, 0.1, 1.2], p: [0, 0, 0], c: 0xd0d6e2, cyl: 8 }, { s: [1.5, 0.06, 0.3], p: [0, 0, 0], c: 0xf4f7fb }, { s: [0.3, 0.06, 1.5], p: [0, 0, 0], c: 0xf4f7fb }]), 4, {});
   const ph = () => new THREE.BoxGeometry(1, 1, 1); // テーマごとに setTheme() で差し替える
   instB = [new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 120, { shadow: true })];
   instFar = new Inst(ph(), 64, { shadow: true }); instSmall = new Inst(ph(), 240, {});
@@ -76,6 +98,7 @@ function buildTank() {
   if (tank) scene.remove(tank.g);
   tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter', laser: pt.turret === 'laser', armor: pt.hull === 'bulk', light: pt.hull === 'light' });
 }
+const pt0 = () => save.parts;
 const TUR = {
   cannon: { n: 1, dm: 1, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 }, twin: { n: 2, dm: 0.65, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 },
   scatter: { n: 5, dm: 0.42, rm: 0.72, lm: 0.6, sm: 1, sp: 0.17, pierce: 0, c: 0 }, laser: { n: 1, dm: 0.8, rm: 0.9, lm: 0.55, sm: 2.1, sp: 0.08, pierce: 3, c: 2 },
@@ -109,6 +132,7 @@ function recalc() {
   S.speed = 9.9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine) * hm[0];
   S.gear = pt.gear;
   S.mag = 4 * (1 + 0.6 * u.magnet); S.regen = 1.2 * u.regen; S.mine = u.mine + (S.gear === 'mines' ? 1 : 0);
+  S.crit = 0.12 * u.crit; S.frost = u.frost; S.orbit = u.orbit; S.salvo = u.salvo; S.plate = 1 - 0.1 * u.plate;
   S.bspd = 30 * (1 + 0.2 * u.long) * tu.sm; S.blife = 0.7 * tu.lm;
 }
 const need = l => 4 + 3 * (l - 1);
@@ -116,7 +140,7 @@ const need = l => 4 + 3 * (l - 1);
 export function startRun() {
   W.genWorld(themeOf(save.stage).id, save.stage); setTheme(save.stage); musicTrack(areaOf(save.stage));
   E.length = B.length = K.length = M.length = boomQ.length = 0;
-  const sup = MT.supplyTick(); buildTank();
+  if (save.runs >= 1) MT.loginTick(); const sup = MT.supplyTick(); buildTank();
   u = {}; for (const d of UPS) u[d.id] = 0;
   Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
   music('calm'); musicVol(1);
@@ -125,7 +149,7 @@ export function startRun() {
   save.runs++; MT.dailyAdd('runs', 1); persist(); UI.hideAll(); UI.setBoss(-1);
   G.arrived = sup.arrived;
   G.tut = G.first ? 0 : 2; UI.hint(null);
-  platform.gameplayStart();
+  platform.gameplayStart(); ev('start', { run: save.runs, stage: G.stage, parts: [pt0().hull, pt0().turret, pt0().gear].join('/') });
 }
 // 途中で閉じてもスクラップが消えないよう、区切りごとに保存へ移す
 export function bank() { const d = G.scrap - G.banked; if (d > 0) { save.scrap += d; G.banked = G.scrap; persist(); } }
@@ -133,17 +157,18 @@ export function bank() { const d = G.scrap - G.banked; if (d > 0) { save.scrap +
 function startWave(i) {
   G.wave = i; G.wt = 0; G.queue = []; W.compact(); MT.dailyAdd('wave', i + 1);
   const hpM = 1 + 0.22 * (G.stage - 1), cM = 1 + 0.12 * (G.stage - 1);
-  if (i >= NWAVE) { G.queue.push({ t: 1.2, k: 3 }); UI.banner(jaEn('拠点ボス出現！', 'BASE BOSS!'), true); sfx.wave(); G.hpM = hpM; return; }
-  const w = WAVES[i];
+  if (i >= NWAVE) { G.queue.push({ t: 1.2, k: BOSSK[(G.stage - 1) % 3] }); UI.banner(jaEn('拠点ボス出現！', 'BASE BOSS!'), true); sfx.wave(); G.hpM = hpM; return; }
+  const w = WAVES[i].slice(); for (let k = 0; k < 3; k++) if (G.stage >= XFROM[k]) w[0] -= XWAVES[i][k]; // 追加の敵のぶんドローンを減らす
   for (let k = 0; k < 3; k++) { const n = Math.round(w[k] * cM); for (let j = 0; j < n; j++) G.queue.push({ t: rr(0.3, WDUR * 0.62) * (k === 0 && j < 3 ? 0.15 : 1), k }); }
+  for (let k = 0; k < 3; k++) if (G.stage >= XFROM[k]) { const n = Math.round(XWAVES[i][k] * cM); for (let j = 0; j < n; j++) G.queue.push({ t: rr(2, WDUR * 0.7), k: 4 + k }); }
   G.queue.sort((a, b) => a.t - b.t); G.hpM = hpM;
   UI.banner('WAVE ' + (i + 1) + ' / ' + NWAVE); if (i > 0) sfx.wave();
 }
 function spawn(k) {
-  const d = ET[k], a = rnd() * 6.283, dist = k === 3 ? 22 : rr(19, 26);
+  const d = ET[k], a = rnd() * 6.283, dist = d.boss ? 22 : rr(19, 26);
   const e = { k, x: clamp(P.x + Math.cos(a) * dist, -W.A + 2, W.A - 2), z: clamp(P.z + Math.sin(a) * dist, -W.A + 2, W.A - 2), hp: d.hp * G.hpM, max: d.hp * G.hpM, r: d.r, ry: 0, kx: 0, kz: 0, cd: rr(1, 2.5), hc: 0, hitT: 0, born: 0, dead: false, c2: 4, strafe: rnd() < 0.5 ? 1 : -1 };
   if (Math.hypot(e.x - P.x, e.z - P.z) < 12) { e.x = clamp(P.x - Math.cos(a) * dist, -W.A + 2, W.A - 2); e.z = clamp(P.z - Math.sin(a) * dist, -W.A + 2, W.A - 2); }
-  E.push(e); if (k === 3) { G.boss = e; UI.setBoss(1); }
+  E.push(e); if (d.boss) { G.boss = e; UI.setBoss(1); }
 }
 function bullet(x, z, a, foe, dmg, spd, life) {
   if (B.length > 400) return;
@@ -151,23 +176,27 @@ function bullet(x, z, a, foe, dmg, spd, life) {
 }
 function shoot() {
   const n = S.shots;
-  for (let k = 0; k < n; k++) { const a = P.ty + (k - (n - 1) / 2) * S.spread; bullet(P.x + Math.sin(a) * 2.2, P.z + Math.cos(a) * 2.2, a, false, S.dmg, S.bspd, S.blife); }
+  const cr = () => S.dmg * (S.crit && rnd() < S.crit ? 2.5 : 1);
+  for (let k = 0; k < n; k++) { const a = P.ty + (k - (n - 1) / 2) * S.spread; bullet(P.x + Math.sin(a) * 2.2, P.z + Math.cos(a) * 2.2, a, false, cr(), S.bspd, S.blife); }
   for (let k = 0; k < S.rear; k++) { const a = P.ty + Math.PI + (k - (S.rear - 1) / 2) * 0.2; bullet(P.x + Math.sin(a) * 1.2, P.z + Math.cos(a) * 1.2, a, false, S.dmg, S.bspd, S.blife); }
   P.recoil = 1; sfx.shot(); fxMuzzle(P.x + Math.sin(P.ty) * 2.3, P.z + Math.cos(P.ty) * 2.3, P.ty);
 }
 function hurtE(e, d, kx, kz) {
   if (e.dead) return; e.hp -= d; e.hitT = 0.1;
-  const m = e.k === 3 ? 0 : e.k === 2 ? 0.35 : 1; e.kx += kx * m; e.kz += kz * m;
+  const m = ET[e.k].boss ? 0 : e.k === 2 ? 0.35 : 1; e.kx += kx * m; e.kz += kz * m;
   if (e.hp <= 0) kill(e);
 }
 function kill(e) {
-  e.dead = true; const d = ET[e.k]; G.kills++; G.scrap += d.sc; MT.dailyAdd('kills', 1); MT.dailyAdd('scrap', d.sc);
-  burst(e.x, 0.8, e.z, e.k === 0 ? 8 : e.k === 3 ? 60 : 16, d.col, e.k >= 2 ? 11 : 8, e.k >= 2 ? 0.5 : 0.34, 0.6);
-  burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7); fxExplode(e.x, e.z, e.k === 0 ? 1.5 : e.k === 1 ? 1.9 : e.k === 2 ? 3 : 6);
-  if (e.k >= 2) { ring(e.x, e.z, e.r * 2.2); addShake(e.k === 3 ? 1 : 0.3); sfx.boom(true); } else { sfx.boom(false); addShake(0.06); }
-  const n = e.k === 3 ? 14 : e.k === 2 ? 3 : 1;
-  for (let i = 0; i < n; i++) K.push({ x: e.x + rr(-1, 1) * (n > 1 ? e.r : 0.2), z: e.z + rr(-1, 1) * (n > 1 ? e.r : 0.2), v: e.k === 3 ? 2 : e.k === 2 ? (i === 0 ? 3 : 1) : d.xp, t: 0, heal: false, vac: false });
-  if (e.k === 3) win();
+  e.dead = true; const d = ET[e.k]; G.kills++; once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
+  const bs = !!d.boss, big = bs || e.k === 2, sm = e.k === 0 || e.k === 4;
+  burst(e.x, 0.8, e.z, sm ? 8 : bs ? 60 : 16, d.col, big ? 11 : 8, big ? 0.5 : 0.34, 0.6);
+  burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7); fxExplode(e.x, e.z, sm ? 1.5 : bs ? 6 : e.k === 2 || e.k === 5 ? 3 : 1.9);
+  if (big || e.k === 5) { ring(e.x, e.z, e.r * 2.2); addShake(bs ? 1 : 0.3); sfx.boom(true); } else { sfx.boom(false); addShake(0.06); }
+  if (e.k === 5) explode(e.x, e.z, 3.4, 30); // 自爆車は倒すと周りの敵を巻き込む
+  if (u.vamp && !P.dead) P.hp = Math.min(S.maxhp, P.hp + 0.5 * u.vamp);
+  const n = bs ? 14 : e.k === 2 ? 3 : 1;
+  for (let i = 0; i < n; i++) K.push({ x: e.x + rr(-1, 1) * (n > 1 ? e.r : 0.2), z: e.z + rr(-1, 1) * (n > 1 ? e.r : 0.2), v: bs ? 2 : e.k === 2 ? (i === 0 ? 3 : 1) : d.xp, t: 0, heal: false, vac: false });
+  if (bs) win();
 }
 function explode(x, z, R, d) {
   ring(x, z, R); fxExplode(x, z, R); burst(x, 1, z, 5, 0x4a4f66, 8, 0.36, 0.9);
@@ -188,7 +217,7 @@ function onBreak(b) {
 function hurt(d) {
   if (G.inv > 0 || G.state !== 'play') return;
   if (S.gear === 'shield' && P.sh <= 0) { P.sh = 8; G.inv = 0.6; ring(P.x, P.z, 3.2, 0x8fe3ff); burst(P.x, 1, P.z, 10, 0x8fe3ff, 8, 0.3, 0.4); sfx.hit(); return; }
-  P.hp -= d * Math.min(1, 0.5 + 0.17 * Math.max(0, G.wave) + 0.15 * (G.stage - 1)); G.inv = 0.45; UI.vignette(); addShake(0.3); sfx.hurt(); burst(P.x, 1, P.z, 5, 0xffb21e, 6, 0.3, 0.4);
+  P.hp -= d * S.plate * Math.min(1, 0.5 + 0.17 * Math.max(0, G.wave) + 0.15 * (G.stage - 1)); G.inv = 0.45; UI.vignette(); addShake(0.3); sfx.hurt(); burst(P.x, 1, P.z, 5, 0xffb21e, 6, 0.3, 0.4);
   if (P.hp <= 0) {
     P.hp = 0; P.dead = true; G.state = 'dead'; G.endT = 1.3; tank.g.visible = false; fxExplode(P.x, P.z, 5);
     burst(P.x, 1, P.z, 40, 0xffb21e, 12, 0.5, 0.9); burst(P.x, 1, P.z, 16, 0x39405c, 9, 0.5, 1); ring(P.x, P.z, 6); addShake(1); sfx.boom(true); sfx.lose();
@@ -206,7 +235,7 @@ function openLevelUp() {
   const pool = UPS.filter(d => u[d.id] < d.max);
   if (!pool.length) { G.pend = 0; P.hp = Math.min(S.maxhp, P.hp + 30); return; }
   const ch = []; while (ch.length < 3 && pool.length) ch.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
-  G.state = 'levelup'; G.choices = ch; sfx.lvl();
+  G.state = 'levelup'; G.choices = ch; sfx.lvl(); once('lvl', { s: Math.round(G.t) });
   UI.showLevelUp(ch.map(d => ({ name: jaEn(d.ja[0], d.en[0]), desc: jaEn(d.ja[1], d.en[1]), icon: d.icon, col: d.col, lv: u[d.id] + 1, max: d.max })), G.lvl, pickUp);
 }
 export function pickUp(i) {
@@ -216,9 +245,10 @@ export function pickUp(i) {
   if (G.pend > 0) openLevelUp(); else G.state = 'play';
 }
 function showResult() {
-  const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
+  MT.loginTick(); const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
   bank(); if (G.won) { save.stage++; save.best = Math.max(save.best, save.stage); } persist();
   G.state = 'result';
+  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, won: G.won ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
   music('calm'); musicVol(0.45);
   const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next }, { buy: buyGar, go: startRun }); G.arrived = null;
 }
@@ -229,6 +259,7 @@ function buyGar(k) {
 
 // 初回の案内: 「動く → 撃つ」を1つずつ、できるまで消さない（PC）。スマホは動くまで
 function tutorial() {
+  if (I.moved) once('move', { s: Math.round(G.t), by: I.touch ? 'touch' : I.auto ? 'click' : 'keys' });
   if (G.tut >= 2) return;
   if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
   if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('クリックした場所へ移動　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Click where you want to go, or move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>'), true); }
@@ -270,6 +301,8 @@ export function update(dt) {
       P.ty = angLerp(P.ty, aim, 1 - Math.exp(-16 * dt));
     } else { P.ty = Math.atan2(I.ax - P.x, I.az - P.z); }
     P.cd -= dt; if (fire && P.cd <= 0) { P.cd = 1 / S.rate; shoot(); }
+    if (S.salvo) { P.sv = (P.sv || 0) - dt; if (P.sv <= 0) { P.sv = 6.5 - S.salvo; const n = 8 + 4 * S.salvo; for (let j = 0; j < n; j++) bullet(P.x, P.z, j / n * 6.283, false, S.dmg * 0.7, S.bspd * 0.8, S.blife); ring(P.x, P.z, 3, 0xff9d3c); } }
+    if (S.orbit) { P.oa = (P.oa || 0) + dt * 3.4; for (let j = 0; j < S.orbit; j++) { const a = P.oa + j / S.orbit * 6.283, ox = P.x + Math.sin(a) * 3.3, oz = P.z + Math.cos(a) * 3.3; for (const e of E) { if (e.dead || e.sawT > G.t) continue; const r = e.r + 0.7; if ((e.x - ox) ** 2 + (e.z - oz) ** 2 < r * r) { e.sawT = G.t + 0.35; hurtE(e, S.dmg * 0.8, (e.x - P.x) * 0.6, (e.z - P.z) * 0.6); fxSparks(ox, oz, 3); } } } }
     if (S.regen && P.hp < S.maxhp) P.hp = Math.min(S.maxhp, P.hp + S.regen * dt);
     if (S.mine) { P.mineT -= dt; if (P.mineT <= 0 && (I.mx || I.mz)) { P.mineT = 3.2 - 0.4 * S.mine; if (M.length < 14) M.push({ x: P.x, z: P.z, t: 0 }); } }
     if (P.sh > 0) P.sh -= dt;
@@ -304,27 +337,47 @@ export function update(dt) {
     let dx = P.x - e.x, dz = P.z - e.z; const dist = Math.hypot(dx, dz) || 1; dx /= dist; dz /= dist;
     let mx = dx, mz = dz;
     if (e.k === 1) { if (dist < 8) { mx = -dx; mz = -dz; } else if (dist < 13) { mx = -dz * e.strafe; mz = dx * e.strafe; } }
+    else if (e.k === 6) { if (dist < 12) { mx = -dx; mz = -dz; } else if (dist < 17) { mx = -dz * e.strafe * 0.6; mz = dx * e.strafe * 0.6; } }
+    else if (e.k === 4) { const w = Math.sin(e.born * 4.5 + e.cd) * 0.75; mx = dx - dz * w; mz = dz + dx * w; }
+    let esm = e.slow > 0 ? (e.slow -= dt, d.boss ? 0.8 : 0.55) : 1;
+    if (d.boss === 2) { // 突進ボス: 止まって狙い（予告の輪）→ 一直線に突進
+      e.c2 -= dt;
+      if (e.dash > 0) { e.dash -= dt; mx = e.dx; mz = e.dz; esm *= 5.2; }
+      else if (e.wind > 0) { e.wind -= dt; mx = mz = 0; if (e.wind <= 0) { e.dash = 0.75; e.dx = dx; e.dz = dz; sfx.wave(); } }
+      else if (e.c2 <= 0 && live) { e.c2 = 4.6; e.wind = 0.8; ring(e.x, e.z, 5, 0xff5b6b); }
+    }
     if (!live) { mx = mz = 0; }
     const dk = Math.exp(-6 * dt); e.kx *= dk; e.kz *= dk;
-    const es = d.sp * (W.feat.river && W.inWater(e.x, e.z) ? 0.7 : 1);
+    const es = d.sp * esm * (W.feat.river && W.inWater(e.x, e.z) ? 0.7 : 1);
     e.x += (mx * es + e.kx) * dt; e.z += (mz * es + e.kz) * dt;
-    e.ry = angLerp(e.ry, e.k === 1 || e.k === 3 ? Math.atan2(dx, dz) : Math.atan2(mx || dx, mz || dz), 1 - Math.exp(-8 * dt));
+    e.ry = angLerp(e.ry, e.k === 1 || e.k === 6 || d.boss === 1 || d.boss === 3 || e.wind > 0 ? Math.atan2(dx, dz) : Math.atan2(mx || dx, mz || dz), 1 - Math.exp(-8 * dt));
     W.pushOut(e, e.r, b => W.damageBlock(b, d.chew * dt));
     if (!live) continue;
     if (e.k === 1) { e.cd -= dt; if (e.cd <= 0 && dist < 19) { e.cd = d.shoot; fxMuzzle(e.x + dx * 1.3, e.z + dz * 1.3, Math.atan2(dx, dz), 0xff3a7a); bullet(e.x + dx * 1.2, e.z + dz * 1.2, Math.atan2(dx, dz), true, d.dmg, 11, 2.4); } }
-    if (e.k === 3) {
+    if (e.k === 6) { e.cd -= dt; if (e.cd <= 0 && dist < 26) { e.cd = d.shoot; const a = Math.atan2(dx, dz); fxMuzzle(e.x + dx * 1.5, e.z + dz * 1.5, a, 0x6f8cff); bullet(e.x + dx * 1.4, e.z + dz * 1.4, a, true, d.dmg, 14, 2.3); } }
+    if (d.boss === 2) {
+      e.cd -= dt; if (e.cd <= 0 && !(e.dash > 0)) { e.cd = 1.9; const a = Math.atan2(dx, dz); for (let j = -1; j <= 1; j++) bullet(e.x + dx * 2.6, e.z + dz * 2.6, a + j * 0.22, true, 9, 12, 2.6); sfx.hit(); }
+      UI.setBoss(e.hp / e.max);
+    }
+    if (d.boss === 3) { // 要塞ボス: らせん弾を撃つ時間と休む時間を繰り返し、自爆車を呼ぶ
+      e.ph = (e.ph || 0) + dt; if (e.ph > 5.6) e.ph = 0;
+      e.cd -= dt; if (e.ph < 3.1 && e.cd <= 0) { e.cd = 0.17; e.sa = (e.sa || 0) + 0.37; for (let j = 0; j < 2; j++) bullet(e.x, e.z, e.sa + j * Math.PI, true, 7, 7.5, 3.4); }
+      e.c2 -= dt; if (e.c2 <= 0) { e.c2 = 7.5; for (let j = 0; j < 2; j++) { spawn(5); const s = E[E.length - 1]; s.x = e.x + rr(-4, 4); s.z = e.z + rr(-4, 4); } }
+      UI.setBoss(e.hp / e.max);
+    }
+    if (d.boss === 1) {
       e.cd -= dt; if (e.cd <= 0) { e.cd = 2.6; const o = rnd() * 6.283, n = 10 + Math.min(8, G.stage * 2); for (let j = 0; j < n; j++) bullet(e.x, e.z, o + j / n * 6.283, true, 8, 9, 3.2); sfx.hit(); }
       e.c2 -= dt; if (e.c2 <= 0) { e.c2 = 6.5; for (let j = 0; j < 4; j++) { spawn(0); const s = E[E.length - 1]; s.x = e.x + rr(-3, 3); s.z = e.z + rr(-3, 3); } }
       UI.setBoss(e.hp / e.max);
     }
-    if (dist < e.r + 1.0 && e.hc <= 0) { e.hc = 0.7; hurt(d.dmg); e.kx -= dx * 9; e.kz -= dz * 9; }
+    if (dist < e.r + 1.0 && e.hc <= 0) { e.hc = 0.7; hurt(d.dmg); e.kx -= dx * 9; e.kz -= dz * 9; if (e.k === 5) { kill(e); continue; } }
   }
   for (let i = 0; i < E.length; i++) { // 敵どうしの押し合い
     const a = E[i]; if (a.dead) continue;
     for (let j = i + 1; j < E.length; j++) {
       const b = E[j]; if (b.dead) continue; const dx = b.x - a.x, dz = b.z - a.z, r = a.r + b.r; if (dx > r || dx < -r || dz > r || dz < -r) continue;
       const d2 = dx * dx + dz * dz; if (d2 >= r * r || d2 < 1e-6) continue; const d = Math.sqrt(d2), p = (r - d) / d * 0.5;
-      const wa = a.k === 3 ? 0 : b.k === 3 ? 2 : 1, wb = 2 - wa; a.x -= dx * p * wa; a.z -= dz * p * wa; b.x += dx * p * wb; b.z += dz * p * wb;
+      const wa = ET[a.k].boss ? 0 : ET[b.k].boss ? 2 : 1, wb = 2 - wa; a.x -= dx * p * wa; a.z -= dz * p * wa; b.x += dx * p * wb; b.z += dz * p * wb;
     }
   }
   // ---- 弾 ----
@@ -343,7 +396,7 @@ export function update(dt) {
     for (let j = 0; j < E.length; j++) {
       const e = E[j]; if (e.dead || e.born < 0.15) continue; const dx = e.x - b.x, dz = e.z - b.z, r = e.r + 0.35;
       if (dx * dx + dz * dz > r * r || (b.hit && b.hit.includes(e))) continue;
-      const sp = Math.hypot(b.vx, b.vz); hurtE(e, b.dmg, b.vx / sp * 4, b.vz / sp * 4); sfx.hit();
+      const sp = Math.hypot(b.vx, b.vz); if (S.frost) e.slow = 1 + 0.6 * S.frost; if (b.dmg > S.dmg * 1.5) ring(e.x, e.z, 1.6, 0xffd23f); hurtE(e, b.dmg, b.vx / sp * 4, b.vz / sp * 4); sfx.hit();
       fxSparks(b.x, b.z, 4);
       if (S.exR) explode(b.x, b.z, S.exR, b.dmg * 0.6);
       if (b.bounce > 0) {
@@ -393,6 +446,7 @@ export function draw(time) {
   instGear.begin(); instHeal.begin();
   for (const k of K) { const y = 0.55 + Math.sin(time * 5 + k.x) * 0.12; if (k.heal) instHeal.put(k.x, y + 0.2, k.z, time * 2, 1.2); else instGear.put(k.x, y, k.z, time * 3 + k.z, k.v > 1 ? 1.5 : 1); }
   instGear.end(); instHeal.end();
+  instSaw.begin(); for (let j = 0; j < S.orbit && !P.dead; j++) { const a = (P.oa || 0) + j / S.orbit * 6.283; instSaw.put(P.x + Math.sin(a) * 3.3, 1, P.z + Math.cos(a) * 3.3, time * 14, 1); } instSaw.end();
   instMine.begin(); for (const m of M) instMine.put(m.x, 0, m.z, 0, Math.min(1, m.t * 4)); instMine.end();
   UI.legend(!I.touch);
   UI.hud({ hp: P.hp, maxhp: S.maxhp, xp: G.xp, need: need(G.lvl), lvl: G.lvl, wave: G.wave, t: G.t, scrap: save.scrap + G.scrap - G.banked, stage: G.stage, place: jaEn(TH.ja, TH.en) });
@@ -400,6 +454,7 @@ export function draw(time) {
 // テストとボット用の状態
 export function snapshot() {
   return { state: G.state, t: G.t, wave: G.wave, lvl: G.lvl, hp: P.hp, maxhp: S.maxhp, kills: G.kills, scrap: G.scrap, enemies: E.length, bullets: B.length, gears: K.length, x: P.x, z: P.z, won: G.won, stage: G.stage, ups: Object.assign({}, u),
+    ch: G.state === 'levelup' ? G.choices.map(d => d.id) : [],
     near: E.slice().sort((a, b) => ((a.x - P.x) ** 2 + (a.z - P.z) ** 2) - ((b.x - P.x) ** 2 + (b.z - P.z) ** 2)).slice(0, 6).map(e => [e.x, e.z, e.k]),
     foe: B.filter(b => b.foe && (b.x - P.x) ** 2 + (b.z - P.z) ** 2 < 64).slice(0, 8).map(b => [b.x, b.z]),
     gear: K.slice(0, 40).map(k => [k.x, k.z]) };

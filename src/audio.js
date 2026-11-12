@@ -6,20 +6,22 @@ export function audioInit() {
   if (ac) { if (ac.state !== 'running') ac.resume().catch(() => {}); return; }
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
-    master = ac.createGain(); master.gain.value = save.mute ? 0 : 0.5;
+    master = ac.createGain(); master.gain.value = save.mute || forced ? 0 : 0.5;
     const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
     mg = ac.createGain(); mg.gain.value = 0.34; mg.connect(master); setInterval(sched, 30);
     nbuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   } catch (e) { ac = null; }
 }
+let forced = false; // 出し先（CrazyGames）の消音設定。ゲーム内の音ボタンより優先
+export function forceMute(v) { forced = !!v; if (master) master.gain.value = save.mute || forced ? 0 : 0.5; }
 export function toggleMute() {
   save.mute = !save.mute; persist();
-  if (master) master.gain.value = save.mute ? 0 : 0.5;
+  if (master) master.gain.value = save.mute || forced ? 0 : 0.5;
   return save.mute;
 }
 function ok(k, gap) {
-  if (!ac || ac.state !== 'running' || save.mute) return false;
+  if (!ac || ac.state !== 'running' || save.mute || forced) return false;
   const t = ac.currentTime; if (t - (last[k] || -9) < gap) return false; last[k] = t; return true;
 }
 function tone(type, f0, f1, dur, vol, at = 0) {

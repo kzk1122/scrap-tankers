@@ -21,6 +21,7 @@ export const PARTS = [
   { id: 'crimson', slot: 'paint', cost: 60, col: 0xb8262b, ja: ['クリムゾン', '目立つ赤'], en: ['Crimson', 'Bold red'] },
   { id: 'snow', slot: 'paint', cost: 80, col: 0xe6ebf0, ja: ['スノー', '雪原仕様の白'], en: ['Snow', 'Winter white'] },
   { id: 'gold', slot: 'paint', cost: 300, col: 0xe8b62a, ja: ['ゴールド', '歴戦の証'], en: ['Gold', 'Veteran finish'] },
+  { id: 'night', slot: 'paint', cost: -1, col: 0x23262d, ja: ['ナイト', '7日目のログイン報酬'], en: ['Night Ops', 'Day 7 login reward'] },
 ];
 export const paintCol = () => (part(save.parts.paint) || part('orange')).col;
 export const part = id => PARTS.find(p => p.id === id);
@@ -29,7 +30,7 @@ export const pdesc = id => { const p = part(id); return p ? jaEn(p.ja[1], p.en[1
 export const owned = id => { const p = part(id); return !!p && (p.cost === 0 || !!save.own[id]); };
 export function equip(id) { const p = part(id); if (!p || !owned(id)) return false; save.parts[p.slot] = id; persist(); return true; }
 export function buyPart(id) {
-  const p = part(id); if (!p || owned(id) || save.scrap < p.cost) return false;
+  const p = part(id); if (!p || owned(id) || p.cost < 0 || save.scrap < p.cost) return false;
   save.scrap -= p.cost; save.own[id] = 1; save.parts[p.slot] = id; persist(); return true;
 }
 
@@ -60,6 +61,18 @@ const POOL = [
   { id: 'wave', n: [4, 5], max: true, ja: n => `WAVE ${n} に到達`, en: n => `Reach wave ${n}` },
 ];
 const fresh = [];
+// ---- ログイン報酬: 遊んだ日を数える 7 日周期。日が空いても最初には戻さない ----
+export const LOGIN = [20, 30, 40, 50, 60, 80, 120];
+export const LOGIN_PART = 'night';
+export function loginTick() {
+  const t = today(), L = save.login || (save.login = { n: 0, day: 0 });
+  if (L.day === t) return 0;
+  L.day = t; L.n++; const i = (L.n - 1) % 7, pay = LOGIN[i]; save.scrap += pay;
+  let msg = jaEn(`ログイン報酬 ${i + 1}日目　+${pay}`, `Login reward day ${i + 1}: +${pay}`);
+  if (i === 6 && !owned(LOGIN_PART)) { save.own[LOGIN_PART] = 1; save.parts.paint = LOGIN_PART; msg += jaEn('　限定カラー「ナイト」', ' and the Night Ops paint'); }
+  fresh.push(msg); persist(); return pay;
+}
+export const loginDay = () => { const L = save.login; return L && L.n ? ((L.n - 1) % 7) + 1 : 0; };
 export function daily() {
   const t = today();
   if (!save.daily || save.daily.day !== t) {

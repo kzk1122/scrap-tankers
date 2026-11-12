@@ -27,7 +27,7 @@ for (const mode of MODES) {
           }
         }
         s = T.step(1);
-        if (s === 'levelup') { const st = T.state(); if (first < 0) first = st.t; lvT.push(st.t | 0); T.pick(mode === 'good' ? 0 : (Math.random() * 3) | 0); }
+        if (s === 'levelup') { const st = T.state(); if (first < 0) first = st.t; lvT.push(st.t | 0); const PR = ['rapid', 'heavy', 'split', 'crit', 'pierce', 'boom', 'bounce', 'orbit', 'salvo', 'armor', 'regen', 'frost', 'rear', 'plate', 'vamp', 'engine', 'mine', 'long', 'magnet', 'scav']; let bi = 0, bp = 99; (st.ch || []).forEach((id, i) => { const q = PR.indexOf(id); if (q >= 0 && q < bp) { bp = q; bi = i; } }); T.pick(mode === 'good' ? bi : (Math.random() * 3) | 0); }
         if (s === 'result') break;
       }
       const st = T.state(); return { t: st.t | 0, wave: st.wave + 1, lvl: st.lvl, kills: st.kills, scrap: st.scrap, won: st.won, first: +first.toFixed(1), hp: st.hp | 0 };

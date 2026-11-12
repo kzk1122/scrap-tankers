@@ -7,8 +7,15 @@ CrazyGames のフルローンチを目指す見下ろし型ローグライト戦
 - `src/page.html` HTML と CSS。`build.mjs` が esbuild で1本にまとめて HTML 1枚にする（three.js も同梱、外部読み込みなし）
 - `node build.mjs artifact` → `dist/scrap-tankers.html`（試作 Artifact 用）、`node build.mjs site` → `dist/index.html`
 
+## 出し先
+- `node build.mjs site` → `dist/index.html`（Cloudflare Pages 用。計測は `/api/ev` へ送る。受け口は `functions/api/ev.js`、表は `schema.sql`、D1 を `DB` という名前でつなぐ）
+- `node build.mjs cg` → `dist/cg/index.html`（CrazyGames 用。SDK v3 を読み込み、進捗は SDK のデータ保存、gameplayStart/Stop、loadingStart/Stop、happytime、muteAudio に対応。提出時は「Progress Save」を選ぶ）
+- 計測の送り先は `EV_URL=https://… node build.mjs cg` で変えられる（空なら送らない。cg は既定で送らない）
+- 計測イベント: load（ロード時間 ms）/ start / move / kill / lvl / end（負けた波と場所）/ win / again / buy / part / equip / tab / t60 / t180 / t600 / leave
+
 ## テスト（Playwright、`PW=$(npm root -g)/playwright` を付ける）
 - `test/smoke.mjs` 起動・画面撮影、`test/real.mjs` 実入力の通し確認
+- `test/platform.mjs` 計測イベントと CrazyGames SDK（偽物）とのつなぎ込み
 - `test/bots.mjs` ボット計測。`MODES=idle,pcidle,mash,good RUNS=5 STAGE=1 UP=0`。中央値でバランスを決める
 - ページ内の入口は `window.__tk`（manual / seed / step / input / state / pick / restart）
 
@@ -20,6 +27,11 @@ CrazyGames のフルローンチを目指す見下ろし型ローグライト戦
 | 適当に動く | 134秒 | WAVE 6 | 2/5 |
 | 上手（逃げ撃ち） | 149秒 | ボス撃破 | 5/5 |
 最初のレベルアップは 6〜12秒。
+
+## 内容（2026-11-12）
+- ラン内強化 20 種、敵 6 種（ドローン / 砲手 / ブルート / 突撃車=拠点2から / 自爆車=拠点3から / 迫撃車=拠点4から）、ボス 3 種（弾幕 / 突進 / 要塞、拠点ごとに順番）
+- ログイン報酬は遊んだ日を数える 7 日周期（7日目に限定カラー）
+- 上手ボット（強化を優先順で選ぶ）: 拠点1〜4 と 6 で 3/3, 3/3, 2/3, 3/3, 2/3 勝利（ガレージ強化は拠点番号-1）
 
 ## 決めたこと
 - 負けあり・スクラップは必ず持ち帰り / 待ちなし / 画面をふさがない
