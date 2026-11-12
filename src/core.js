@@ -20,14 +20,18 @@ export function angLerp(a, b, k) {
 
 const KEY = 'scrap_tankers_v1';
 function load() {
-  const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, mute: false, lang: null };
+  const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, parts: { hull: 'std', turret: 'cannon', gear: 'none' }, own: {}, daily: null, supply: null, mute: false, lang: null };
   try {
     const j = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (j && j.v === 1) { Object.assign(d, j); d.up = Object.assign({ dmg: 0, hp: 0, spd: 0 }, j.up); }
+    if (j && j.v === 1) { Object.assign(d, j); d.up = Object.assign({ dmg: 0, hp: 0, spd: 0 }, j.up); d.parts = Object.assign({ hull: 'std', turret: 'cannon', gear: 'none' }, j.parts); d.own = j.own || {}; }
   } catch (e) { /* 保存が使えなくても遊べる */ }
   return d;
 }
 export const save = load();
+// 端末の現地時刻での「何日目か」。テストでは setDayOff で日付を進める
+let dayOff = 0;
+export const setDayOff = n => { dayOff = n; };
+export const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000) + dayOff;
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* noop */ } }
 
 function pickLang() {
