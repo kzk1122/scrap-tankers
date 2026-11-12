@@ -1,5 +1,6 @@
 // 画面の文字と重ね表示（HUD、強化の3択、結果とガレージ）。値が変わったときだけ DOM を触る
-import { jaEn, save } from './core.js';
+import { jaEn, save, persist, TARGET } from './core.js';
+import { themeOf } from './themes.js';
 import { sfx, toggleMute, audioInit } from './audio.js';
 import { GAR, garCost, GAR_MAX, NWAVE } from './game.js';
 
@@ -64,7 +65,21 @@ export function showResult(d, h) {
   $('gart').textContent = jaEn('ガレージで強化', 'Upgrade in the garage');
   $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); resH.go(); } };
+  if (TARGET === 'artifact') debugStage(d.win);
   drawGarage(); $('res').hidden = false;
+}
+// 試作版だけ：勝たなくても全拠点を見られるようにする拠点えらび
+function debugStage(win) {
+  let el = $('dbg');
+  if (!el) { el = document.createElement('div'); el.id = 'dbg'; el.style.cssText = 'margin-top:10px;display:flex;gap:10px;justify-content:center;align-items:center;font-size:13px;opacity:.85'; $('go').after(el); }
+  const draw = () => {
+    const th = themeOf(save.stage);
+    el.innerHTML = `<button id="dbgL" style="padding:6px 12px">◀</button><span>${jaEn('試作用 拠点えらび', 'Test: pick base')} ${save.stage} ${jaEn(th.ja, th.en)}</span><button id="dbgR" style="padding:6px 12px">▶</button>`;
+    $('dbgL').onclick = () => mv(-1); $('dbgR').onclick = () => mv(1);
+    $('go').textContent = jaEn(`拠点 ${save.stage}「${th.ja}」へ出撃`, `Deploy to base ${save.stage}: ${th.en}`);
+  };
+  const mv = d => { save.stage = Math.max(1, Math.min(60, save.stage + d)); persist(); draw(); };
+  draw();
 }
 function drawGarage() {
   const box = $('gar'); box.innerHTML = ''; let goal = null;
