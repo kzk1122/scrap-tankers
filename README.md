@@ -11,6 +11,7 @@ CrazyGames のフルローンチを目指す見下ろし型ローグライト戦
 - `node build.mjs site` → `dist/index.html`（Cloudflare Pages 用。計測は `/api/ev` へ送る。受け口は `functions/api/ev.js`、表は `schema.sql`、D1 を `DB` という名前でつなぐ）
 - `node build.mjs cg` → `dist/cg/index.html`（CrazyGames 用。SDK v3 を読み込み、進捗は SDK のデータ保存、gameplayStart/Stop、loadingStart/Stop、happytime、muteAudio に対応。提出時は「Progress Save」を選ぶ）
 - 計測の送り先は `EV_URL=https://… node build.mjs cg` で変えられる（空なら送らない。cg は既定で送らない）
+- 公開版（事前テスト）: https://scrap-tankers.pages.dev/ 。集計ページは `/stats`（`?days=1|7|30`。Pages の環境変数 `STATS_KEY` を入れると `?k=…` が必要になる）。`node test/stats.mjs` で受け口と集計を確認
 - 計測イベント: load（ロード時間 ms）/ start / move / kill / lvl / end（負けた波と場所）/ win / again / buy / part / equip / tab / t60 / t180 / t600 / leave
 
 ## テスト（Playwright、`PW=$(npm root -g)/playwright` を付ける）

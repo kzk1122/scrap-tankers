@@ -1,0 +1,20 @@
+// 受け口（/api/ev）と集計ページ（/stats）を、node:sqlite を D1 の代わりにして確かめる
+import { DatabaseSync } from 'node:sqlite'; import { readFileSync } from 'node:fs';
+import { onRequestPost } from '../functions/api/ev.js'; import { onRequestGet } from '../functions/stats.js';
+const db = new DatabaseSync(':memory:'); db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+const DB = { prepare(sql) { const st = db.prepare(sql); let args = []; const o = { bind(...a) { const c = Object.create(o); c.a = a; return c; }, a: [], async all() { return { results: st.all(...this.a) }; }, run() { st.run(...this.a); } }; return o; }, async batch(list) { for (const s of list) s.run(); } };
+const post = b => onRequestPost({ request: new Request('http://x/api/ev', { method: 'POST', body: JSON.stringify(b) }), env: { DB } });
+const S = (id, sid, dev, day, evs) => post({ id, sid, tg: 'site', dev, lang: 'ja', day, run: 1, evs });
+await S('u1', 's1', 'd', 0, [{ n: 'load', t: 0.3, ms: 900 }, { n: 'start', t: 1, run: 1, stage: 1 }, { n: 'move', t: 2 }, { n: 'kill', t: 3 }, { n: 'lvl', t: 9 }, { n: 't60', t: 60 }, { n: 'end', t: 150, stage: 1, wave: 6, won: 1, s: 150 }, { n: 'again', t: 155 }, { n: 'part', t: 152, k: 'twin' }]);
+await S('u2', 's2', 'm', 0, [{ n: 'load', t: 0.3, ms: 4200 }, { n: 'start', t: 1 }, { n: 'move', t: 5 }, { n: 'end', t: 40, stage: 1, wave: 1, won: 0, s: 40 }]);
+await S('u1', 's3', 'd', 1, [{ n: 'load', t: 0.3, ms: 700 }, { n: 'start', t: 1 }]);
+const bad = await onRequestPost({ request: new Request('http://x/api/ev', { method: 'POST', body: 'not json' }), env: { DB } });
+let fail = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fail++; };
+ok(db.prepare('SELECT COUNT(*) c FROM ev').get().c === 15, 'rows stored'); ok(bad.status === 400, 'bad body rejected');
+const html = await (await onRequestGet({ request: new Request('http://x/stats?days=7'), env: { DB } })).text();
+const txt = html.replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+ok(/1分プレイ 1 50\.0% 0 0\.0%/.test(txt), 'funnel: t60 PC 1/2, mobile 0/1'); ok(/スマホ 4\.20 秒/.test(txt), 'mobile load 4.20 s');
+ok(/PC 1 1 100\.0%/.test(txt), 'D1: PC 1 of 1 returned'); ok(/拠点 1 ボス 1 1 150 秒/.test(txt) && /twin パーツ購入 1/.test(txt), 'run ends and purchases listed');
+ok((await onRequestGet({ request: new Request('http://x/stats'), env: { DB, STATS_KEY: 'abc' } })).status === 403, 'key required when STATS_KEY is set');
+if (process.argv[2]) (await import('node:fs')).writeFileSync(process.argv[2], html);
+process.exit(fail ? 1 : 0);
