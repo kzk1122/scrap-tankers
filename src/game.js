@@ -83,7 +83,7 @@ function recalc() {
   S.shots = 1 + u.split; S.pierce = u.pierce; S.bounce = u.bounce; S.rear = u.rear;
   S.exR = u.boom ? 2.0 + 0.6 * u.boom : 0;
   S.maxhp = 100 + 15 * save.up.hp + 25 * u.armor;
-  S.speed = 9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine);
+  S.speed = 9.9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine);
   S.mag = 4 * (1 + 0.6 * u.magnet); S.regen = 1.2 * u.regen; S.mine = u.mine;
   S.bspd = 30 * (1 + 0.2 * u.long); S.blife = 0.7;
 }
