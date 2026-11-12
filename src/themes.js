@@ -5,7 +5,7 @@ const ONE = [[1, 1, 1]];
 const dk = 0x2a2d44;
 const wood = (a, b, top) => { const p = [{ s: [1.7, 1.7, 1.7], p: [0, 0.85, 0], c: a }, { s: [1.82, 0.26, 1.82], p: [0, 0.2, 0], c: b }, { s: [1.82, 0.26, 1.82], p: [0, 1.5, 0], c: b }]; if (top) p.push({ s: [1.76, 0.12, 1.76], p: [0, 1.76, 0], c: top }); return p; };
 const BARREL = [{ s: [1.3, 1.6, 1.3], p: [0, 0.8, 0], c: 0xe5484d, cyl: 10 }, { s: [1.36, 0.3, 1.36], p: [0, 0.8, 0], c: 0xffd23f, cyl: 10 }];
-const tree = (g1, g2) => [{ s: [0.5, 1.2, 0.5], p: [0, 0.6, 0], c: 0x7a5230, cyl: 6 }, { s: [2.2, 1.5, 2.2], p: [0, 1.9, 0], c: g1 }, { s: [1.5, 1.1, 1.5], p: [0, 3.1, 0], c: g2 }];
+const tree = (g1, g2) => [{ s: [0.34, 1.5, 0.56], p: [0, 0.75, 0], c: 0x6a4526, cyl: 7 }, { s: [0.5, 2.0, 3.4], p: [0, 2.0, 0], c: g1, cyl: 9 }, { s: [0.3, 1.8, 2.7], p: [0, 3.1, 0], c: g2, cyl: 9 }, { s: [0.02, 1.6, 1.9], p: [0, 4.2, 0], c: g2, cyl: 9 }];
 function building() {
   const p = [{ s: [1.96, 2.4, 1.96], p: [0, 1.2, 0], c: 0xffffff }, { s: [2.04, 0.16, 2.04], p: [0, 2.46, 0], c: 0x9aa3b5 }, { s: [0.7, 0.3, 0.7], p: [0.4, 2.66, -0.3], c: 0x8a93a6 }];
   for (const y of [0.75, 1.7]) for (const o of [-0.46, 0.46]) for (const sgn of [-1, 1]) {
@@ -21,18 +21,18 @@ function container() {
 const ell = (g, c, x, y, rx, ry) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.fill(); };
 
 export const THEMES = [
-  { id: 'plains', ja: '平原', en: 'Plains', g1: '#93d481', g2: '#88cb77', bg: 0x2f6f5e, outer: 0x3b8468, fence: 0x56688f, sky: 0xffffff, gnd: 0x7fae8a, hemiI: 1.25, sun: 0xfff1d0, sunI: 1.9, dust: 0xb9d89a, crateFx: 0xc98d4b, wallFx: 0xcfd6e4,
+  { id: 'plains', grass: { c: [0x5fa044, 0x93cc5c], d: 1 }, ja: '平原', en: 'Plains', g1: '#6da650', g2: '#5f9a46', bg: 0x2f6f5e, outer: 0x3b8468, fence: 0x56688f, sky: 0xffffff, gnd: 0x7fae8a, hemiI: 1.25, sun: 0xfff1d0, sunI: 1.9, dust: 0xb9d89a, crateFx: 0xc98d4b, wallFx: 0xcfd6e4,
     crate: () => wood(0xc98d4b, 0xa66f36), tc: ONE,
     wall: () => [{ s: [2, 1.9, 2], p: [0, 0.95, 0], c: 0xcfd6e4 }, { s: [2.04, 0.3, 2.04], p: [0, 1.75, 0], c: 0xaab4c8 }], tw: ONE,
     far: () => tree(0x4fa85a, 0x62bd6a), small: () => [{ s: [0.12, 0.34, 0.12], p: [0, 0.17, 0], c: 0x5fae58 }, { s: [0.12, 0.26, 0.12], p: [0.16, 0.13, 0.08], c: 0x6fbe66 }, { s: [0.18, 0.12, 0.18], p: [0, 0.4, 0], c: 0xffe66d }],
     paint(g, k) { for (let i = 0; i < 16; i++) ell(g, 'rgba(176,146,92,.32)', k.r() * k.S, k.r() * k.S, (2 + k.r() * 3.5) * k.u, (1.5 + k.r() * 2.5) * k.u); for (let i = 0; i < 220; i++) ell(g, ['#ffffff', '#ffe66d', '#ffb3d1'][i % 3], k.r() * k.S, k.r() * k.S, 0.13 * k.u, 0.13 * k.u); } },
-  { id: 'mountain', ja: '山岳', en: 'Mountain', g1: '#a7b995', g2: '#9db08b', bg: 0x8fa3b5, outer: 0x77877a, fence: 0x6b6f7c, sky: 0xeaf4ff, gnd: 0x8f9a8a, hemiI: 1.3, sun: 0xf2f6ff, sunI: 1.7, dust: 0xc9cfc0, crateFx: 0x2f7d4f, wallFx: 0x9aa0a8,
+  { id: 'mountain', grass: { c: [0x8a9a70, 0xb0bc90], d: 0.4, h: 0.8 }, ja: '山岳', en: 'Mountain', g1: '#a7b995', g2: '#9db08b', bg: 0x8fa3b5, outer: 0x77877a, fence: 0x6b6f7c, sky: 0xeaf4ff, gnd: 0x8f9a8a, hemiI: 1.3, sun: 0xf2f6ff, sunI: 1.7, dust: 0xc9cfc0, crateFx: 0x2f7d4f, wallFx: 0x9aa0a8,
     crate: () => [{ s: [0.36, 0.8, 0.36], p: [0, 0.4, 0], c: 0x7a5230, cyl: 6 }, { s: [0.06, 1.5, 1.9], p: [0, 1.5, 0], c: 0x2f7d4f, cyl: 7 }, { s: [0.03, 1.2, 1.4], p: [0, 2.4, 0], c: 0x3a9160, cyl: 7 }, { s: [0.02, 0.5, 0.62], p: [0, 3.02, 0], c: 0xf4f8ff, cyl: 7 }], tc: lin([0xffffff, 0xdff0df, 0xf0ffe8]),
     wall: () => [{ s: [1.8, 1.3, 1.7], p: [0, 0.65, 0], c: 0x9aa0a8, ry: 0.2 }, { s: [1.2, 0.9, 1.3], p: [0.25, 1.5, -0.1], c: 0xb4bac2, ry: 0.6 }, { s: [0.9, 0.7, 0.9], p: [-0.55, 0.35, 0.6], c: 0x858b94, ry: 0.9 }], tw: lin([0xffffff, 0xe6e6ec, 0xfff8ee]),
     far: () => [{ s: [0.1, 9, 9], p: [0, 4.5, 0], c: 0x7d8794, cyl: 6 }, { s: [0.05, 3.2, 3.3], p: [0, 7.5, 0], c: 0xf4f8ff, cyl: 6 }], farN: 34, farS: [0.9, 2.2],
     small: () => [{ s: [0.5, 0.3, 0.4], p: [0, 0.15, 0], c: 0x8d939c, ry: 0.5 }, { s: [0.3, 0.2, 0.3], p: [0.3, 0.1, 0.2], c: 0xa9afb8 }],
     paint(g, k) { for (let i = 0; i < 20; i++) ell(g, 'rgba(122,112,100,.4)', k.r() * k.S, k.r() * k.S, (2 + k.r() * 4) * k.u, (1.5 + k.r() * 3) * k.u); for (let i = 0; i < 22; i++) { const e = k.r() < 0.6; ell(g, 'rgba(255,255,255,.8)', e ? (k.r() < 0.5 ? k.r() * 0.2 : 0.8 + k.r() * 0.2) * k.S : k.r() * k.S, k.r() * k.S, (1.5 + k.r() * 4) * k.u, (1.2 + k.r() * 3) * k.u); } } },
-  { id: 'river', ja: '川', en: 'River', g1: '#8fd18a', g2: '#84c77f', bg: 0x2f6f5e, outer: 0x3f8f63, fence: 0x7a5a3a, sky: 0xffffff, gnd: 0x7fbf9a, hemiI: 1.3, sun: 0xfff6dc, sunI: 1.85, dust: 0xb9d89a, crateFx: 0xd9b36a, wallFx: 0xb7b2a6,
+  { id: 'river', grass: { c: [0x58a04c, 0x8cc864], d: 0.9 }, ja: '川', en: 'River', g1: '#68a658', g2: '#5c9a4e', bg: 0x2f6f5e, outer: 0x3f8f63, fence: 0x7a5a3a, sky: 0xffffff, gnd: 0x7fbf9a, hemiI: 1.3, sun: 0xfff6dc, sunI: 1.85, dust: 0xb9d89a, crateFx: 0xd9b36a, wallFx: 0xb7b2a6,
     crate: () => wood(0xd9b36a, 0xb58a45), tc: ONE,
     wall: () => [{ s: [2, 1.5, 2], p: [0, 0.75, 0], c: 0xb7b2a6 }, { s: [2.05, 0.3, 2.05], p: [0, 1.6, 0], c: 0x6fae5a }, { s: [0.7, 0.3, 0.7], p: [0.3, 1.85, -0.2], c: 0x7fbe6a }], tw: lin([0xffffff, 0xeeeeea]),
     far: () => tree(0x3f9a55, 0x57b566), small: () => [{ s: [0.08, 0.9, 0.08], p: [0, 0.45, 0], c: 0x4f9a4a }, { s: [0.08, 0.7, 0.08], p: [0.14, 0.35, 0.05], c: 0x5fae58 }, { s: [0.1, 0.2, 0.1], p: [0, 0.95, 0], c: 0x8a5a30 }],
@@ -77,8 +77,8 @@ export const THEMES = [
       g.fillStyle = '#f4f4f4'; g.font = `900 ${4.2 * k.u}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.save(); g.translate(k.X(-k.A + 9.5), k.X(m)); g.rotate(Math.PI / 2); g.fillText('09', 0, 0); g.restore(); g.save(); g.translate(k.X(k.A - 9.5), k.X(m)); g.rotate(-Math.PI / 2); g.fillText('27', 0, 0); g.restore();
     } },
-  { id: 'forest', ja: '森林', en: 'Forest', g1: '#6fae62', g2: '#67a55b', bg: 0x244f3a, outer: 0x2f6b45, fence: 0x6a4a2c, sky: 0xe8ffe8, gnd: 0x5f8f5a, hemiI: 1.2, sun: 0xfff0c8, sunI: 1.7, dust: 0x9fc98a, crateFx: 0x3f9a55, wallFx: 0x8d7a5c,
-    crate: () => [{ s: [0.5, 1.0, 0.5], p: [0, 0.5, 0], c: 0x7a5230, cyl: 6 }, { s: [1.9, 1.3, 1.9], p: [0, 1.6, 0], c: 0x3f9a55 }, { s: [1.3, 1.0, 1.3], p: [0.1, 2.6, -0.1], c: 0x57b566 }], tc: lin([0xffffff, 0xe0f5d0, 0xfff5c8, 0xd8f0e0]),
+  { id: 'forest', grass: { c: [0x3f8a3c, 0x68ae4c], d: 1, h: 1.15 }, ja: '森林', en: 'Forest', g1: '#4f8a44', g2: '#457e3c', bg: 0x244f3a, outer: 0x2f6b45, fence: 0x6a4a2c, sky: 0xe8ffe8, gnd: 0x5f8f5a, hemiI: 1.2, sun: 0xfff0c8, sunI: 1.7, dust: 0x9fc98a, crateFx: 0x3f9a55, wallFx: 0x8d7a5c,
+    crate: () => [{ s: [0.34, 1.1, 0.5], p: [0, 0.55, 0], c: 0x6a4526, cyl: 7 }, { s: [0.4, 1.5, 2.0], p: [0, 1.55, 0], c: 0x2f8548, cyl: 9 }, { s: [0.25, 1.3, 1.6], p: [0, 2.4, 0], c: 0x3f9a55, cyl: 9 }, { s: [0.02, 1.1, 1.1], p: [0, 3.2, 0], c: 0x57b566, cyl: 9 }], tc: lin([0xffffff, 0xe0f5d0, 0xfff5c8, 0xd8f0e0]),
     wall: () => [{ s: [1.9, 1.5, 1.9], p: [0, 0.75, 0], c: 0x8d7a5c, cyl: 9 }, { s: [1.6, 0.14, 1.6], p: [0, 1.56, 0], c: 0xd9c08f, cyl: 9 }, { s: [0.9, 0.1, 0.9], p: [0, 1.66, 0], c: 0xb89a66, cyl: 9 }, { s: [0.7, 0.4, 0.5], p: [0.8, 0.2, 0.5], c: 0x6fae5a }], tw: lin([0xffffff, 0xf0e6d8]),
     far: () => tree(0x2f8548, 0x3f9a55), farN: 60, farS: [1.2, 2.6],
     small: () => [{ s: [0.14, 0.24, 0.14], p: [0, 0.12, 0], c: 0xf4ecd8, cyl: 6 }, { s: [0.1, 0.16, 0.4], p: [0, 0.3, 0], c: 0xe5484d, cyl: 7 }],
