@@ -25,7 +25,7 @@ export function hud(d) {
   wid('hpb', d.hp / d.maxhp); txt('hpn', Math.ceil(d.hp) + ' / ' + d.maxhp);
   wid('xpb', d.xp / d.need); txt('lv', 'Lv ' + d.lvl);
   txt('wave', d.wave >= NWAVE ? 'BOSS' : 'WAVE ' + Math.max(1, d.wave + 1) + ' / ' + NWAVE);
-  const s = d.t | 0; txt('time', jaEn('拠点 ', 'Base ') + d.stage + '　' + ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0'));
+  const s = d.t | 0; txt('time', jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0'));
   txt('scr', d.scrap);
 }
 export function setBoss(f) { const w = $('bossw'); if (f < 0) { if (!w.hidden) w.hidden = true; return; } if (w.hidden) w.hidden = false; wid('bossb', f); }
@@ -58,11 +58,11 @@ export function showResult(d, h) {
   const s = d.t | 0, tm = ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0');
   $('rtitle').textContent = d.win ? jaEn('拠点を奪還！', 'Base reclaimed!') : jaEn('撃破された…', 'Tank destroyed');
   $('rtitle').className = 'rtitle ' + (d.win ? 'win' : 'lose');
-  $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
+  $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
   $('stats').innerHTML = [[jaEn('時間', 'Time'), tm], [jaEn('撃破', 'Kills'), d.kills], [jaEn('レベル', 'Level'), d.lvl]].map(a => `<div><small>${a[0]}</small><b>${a[1]}</b></div>`).join('');
   $('earn').innerHTML = `+${d.earned} ${NUT} ` + jaEn('スクラップを持ち帰った', 'scrap brought home');
   $('gart').textContent = jaEn('ガレージで強化', 'Upgrade in the garage');
-  $('go').textContent = d.win ? jaEn('次の拠点へ出撃', 'Attack the next base') : jaEn('もう一度出撃', 'Deploy again');
+  $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); resH.go(); } };
   drawGarage(); $('res').hidden = false;
 }
