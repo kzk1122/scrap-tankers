@@ -97,8 +97,7 @@ export function startRun() {
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false });
   hull.visible = turret.visible = true; tgt = null;
   save.runs++; persist(); UI.hideAll(); UI.setBoss(-1);
-  if (G.first) UI.hint(I.touch ? jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically') : jaEn('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動　マウスで狙ってクリックで射撃', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move. Aim with the mouse, click to fire'));
-  else UI.hint(null);
+  G.tut = G.first ? 0 : 2; UI.hint(null);
   platform.gameplayStart();
 }
 // 途中で閉じてもスクラップが消えないよう、区切りごとに保存へ移す
@@ -197,6 +196,13 @@ function buyGar(k) {
   save.scrap -= c; save.up[k]++; persist(); sfx.buy(); return true;
 }
 
+// 初回の案内: 「動く → 撃つ」を1つずつ、できるまで消さない（PC）。スマホは動くまで
+function tutorial() {
+  if (G.tut >= 2) return;
+  if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
+  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーで移動', 'Move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>'), true); }
+  if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('マウスで狙って、クリック長押しで射撃', 'Aim with the mouse, hold click to fire'), !I.fired); }
+}
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
   let best = null, bd = (S.bspd * S.blife + 1) ** 2;
   for (const e of E) { if (e.dead) continue; const d = (e.x - P.x) ** 2 + (e.z - P.z) ** 2; if (d < bd) { bd = d; best = e; } }
@@ -225,7 +231,7 @@ export function update(dt) {
     P.cd -= dt; if (fire && P.cd <= 0) { P.cd = 1 / S.rate; shoot(); }
     if (S.regen && P.hp < S.maxhp) P.hp = Math.min(S.maxhp, P.hp + S.regen * dt);
     if (S.mine) { P.mineT -= dt; if (P.mineT <= 0 && (I.mx || I.mz)) { P.mineT = 3.2 - 0.4 * S.mine; if (M.length < 14) M.push({ x: P.x, z: P.z, t: 0 }); } }
-    if (G.first && (I.touch ? I.moved : (I.moved && I.fired)) && G.t > 2) { G.first = false; UI.hint(null); }
+    tutorial();
   }
   P.recoil = Math.max(0, P.recoil - dt * 9);
   // ---- 波 ----
@@ -335,6 +341,7 @@ export function draw(time) {
   for (const k of K) { const y = 0.55 + Math.sin(time * 5 + k.x) * 0.12; if (k.heal) instHeal.put(k.x, y + 0.2, k.z, time * 2, 1.2); else instGear.put(k.x, y, k.z, time * 3 + k.z, k.v > 1 ? 1.5 : 1); }
   instGear.end(); instHeal.end();
   instMine.begin(); for (const m of M) instMine.put(m.x, 0, m.z, 0, Math.min(1, m.t * 4)); instMine.end();
+  UI.legend(!I.touch);
   UI.hud({ hp: P.hp, maxhp: S.maxhp, xp: G.xp, need: need(G.lvl), lvl: G.lvl, wave: G.wave, t: G.t, scrap: save.scrap + G.scrap - G.banked, stage: G.stage });
 }
 // テストとボット用の状態

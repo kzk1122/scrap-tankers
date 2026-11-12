@@ -31,7 +31,12 @@ export function setBoss(f) { const w = $('bossw'); if (f < 0) { if (!w.hidden) w
 function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 export function banner(t, big) { const b = $('banner'); b.textContent = t; b.classList.toggle('big', !!big); replay(b, 'show'); }
 export function vignette() { replay($('vig'), 'show'); }
-export function hint(html) { const h = $('hint'); if (!html) { h.hidden = true; return; } h.innerHTML = html; h.hidden = false; }
+export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden = true; return; } if (cache.hint !== html) { cache.hint = html; h.innerHTML = html; } h.classList.toggle('pulse', !!pulse); h.hidden = false; }
+// PC では操作方法を常に左下へ出す（スマホでは出さない）
+export function legend(show) {
+  const k = $('keys'); if (cache.keys === show) return; cache.keys = show; k.hidden = !show;
+  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('移動', 'Move')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('狙う', 'Aim')], [jaEn('<b>クリック長押し</b>', '<b>Hold click</b>'), jaEn('射撃', 'Fire')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+}
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; pickCb = null; resH = null; }
 
 export function showLevelUp(ch, lvl, cb) {

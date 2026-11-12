@@ -88,8 +88,8 @@ let accT = 0, accN = 0, good = 0;
 export function adapt(ms) {
   accT += ms; accN++; if (accT < 1500) return;
   const avg = accT / accN; accT = 0; accN = 0;
-  if (avg > 24) { good = 0; if (pr > 0.7) { pr = Math.max(0.7, pr * 0.82); renderer.setPixelRatio(pr); resize(); } else if (renderer.shadowMap.enabled) { renderer.shadowMap.enabled = false; light.castShadow = false; } }
-  else if (avg < 15 && pr < prMax) { if (++good >= 4) { good = 0; pr = Math.min(prMax, pr * 1.12); renderer.setPixelRatio(pr); resize(); } }
+  if (avg > 24) { good = 0; if (pr > 0.7) { pr = Math.max(0.7, pr * 0.82); renderer.setPixelRatio(pr); resize(); render(); } else if (renderer.shadowMap.enabled) { renderer.shadowMap.enabled = false; light.castShadow = false; } }
+  else if (avg < 15 && pr < prMax) { if (++good >= 4) { good = 0; pr = Math.min(prMax, pr * 1.12); renderer.setPixelRatio(pr); resize(); render(); } }
 }
 
 // ---- 粒子（箱のインスタンス） ----
