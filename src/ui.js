@@ -3,6 +3,7 @@ import { jaEn, save, persist, TARGET } from './core.js';
 import { themeOf } from './themes.js';
 import { sfx, toggleMute, audioInit } from './audio.js';
 import { GAR, garCost, GAR_MAX, NWAVE } from './game.js';
+import * as MT from './meta.js';
 
 const $ = id => document.getElementById(id);
 const cache = {};
@@ -32,12 +33,13 @@ export function hud(d) {
 export function setBoss(f) { const w = $('bossw'); if (f < 0) { if (!w.hidden) w.hidden = true; return; } if (w.hidden) w.hidden = false; wid('bossb', f); }
 function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 export function banner(t, big) { const b = $('banner'); b.textContent = t; b.classList.toggle('big', !!big); replay(b, 'show'); }
+export function toast(t) { const e = $('toast'); e.textContent = t; replay(e, 'show'); }
 export function vignette() { replay($('vig'), 'show'); }
 export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden = true; return; } if (cache.hint !== html) { cache.hint = html; h.innerHTML = html; } h.classList.toggle('pulse', !!pulse); h.hidden = false; }
 // PC では操作方法を常に左下へ出す（スマホでは出さない）
 export function legend(show) {
   const k = $('keys'); if (cache.keys === show) return; cache.keys = show; k.hidden = !show;
-  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('移動', 'Move')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('狙う', 'Aim')], [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('移動', 'Move')], [jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('その場所へ移動', 'Go there')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('狙う', 'Aim')], [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; pickCb = null; resH = null; }
 
@@ -62,11 +64,14 @@ export function showResult(d, h) {
   $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
   $('stats').innerHTML = [[jaEn('時間', 'Time'), tm], [jaEn('撃破', 'Kills'), d.kills], [jaEn('レベル', 'Level'), d.lvl]].map(a => `<div><small>${a[0]}</small><b>${a[1]}</b></div>`).join('');
   $('earn').innerHTML = `+${d.earned} ${NUT} ` + jaEn('スクラップを持ち帰った', 'scrap brought home');
-  $('gart').textContent = jaEn('ガレージで強化', 'Upgrade in the garage');
+  let sp = '';
+  if (d.arrived) sp = d.arrived === 'scrap' ? jaEn(`補給便が届いた！ <b>スクラップ +${MT.SUP_SCRAP}</b>`, `Supply drop arrived: <b>+${MT.SUP_SCRAP} scrap</b>`) : jaEn(`補給便が届いた！ <b>${MT.pname(d.arrived)}</b> を装備した`, `Supply drop arrived: <b>${MT.pname(d.arrived)}</b> equipped`);
+  else if (d.supply) sp = d.supply === 'scrap' ? jaEn(`明日届く補給便: <b>スクラップ ${MT.SUP_SCRAP}</b>`, `Tomorrow's supply drop: <b>${MT.SUP_SCRAP} scrap</b>`) : jaEn(`明日届く補給便: <b>${MT.pname(d.supply)}</b>（${MT.pdesc(d.supply)}）`, `Tomorrow's supply drop: <b>${MT.pname(d.supply)}</b> (${MT.pdesc(d.supply)})`);
+  $('supply').hidden = !sp; $('supply').innerHTML = sp; tab = 'up';
   $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); resH.go(); } };
   if (TARGET === 'artifact') debugStage(d.win);
-  drawGarage(); $('res').hidden = false;
+  drawAll(); $('res').hidden = false;
 }
 // 試作版だけ：勝たなくても全拠点を見られるようにする拠点えらび
 function debugStage(win) {
@@ -81,16 +86,46 @@ function debugStage(win) {
   const mv = d => { save.stage = Math.max(1, Math.min(60, save.stage + d)); persist(); draw(); };
   draw();
 }
+let tab = 'up', goal = null;
+function drawAll() {
+  goal = null; drawGarage(); drawParts(); drawDaily();
+  const D = MT.daily(), done = D.m.filter(m => m.done).length;
+  const canUp = GAR.some(g => save.up[g.k] < GAR_MAX && save.scrap >= garCost(save.up[g.k])), canPt = MT.PARTS.some(p => !MT.owned(p.id) && save.scrap >= p.cost);
+  const T = [['up', jaEn('強化', 'Upgrades'), canUp], ['parts', jaEn('パーツ', 'Parts'), canPt], ['daily', jaEn('デイリー ', 'Daily ') + done + '/3', false]];
+  $('tabs').innerHTML = T.map(t => `<button class="tb${tab === t[0] ? ' on' : ''}" id="tb_${t[0]}">${t[1]}${t[2] ? '<span class="dot"></span>' : ''}</button>`).join('');
+  for (const t of T) { $('tb_' + t[0]).onclick = () => { tab = t[0]; sfx.ui(); drawAll(); }; $('tab_' + t[0]).hidden = tab !== t[0]; }
+  $('total').innerHTML = jaEn('所持 ', 'You have ') + NUT + save.scrap;
+  $('goal').textContent = goal ? jaEn(`あと ${goal.c - save.scrap} スクラップで「${goal.ja}」`, `${goal.c - save.scrap} more scrap for ${goal.en}`) : '';
+}
 function drawGarage() {
-  const box = $('gar'); box.innerHTML = ''; let goal = null;
+  const box = $('gar'); box.innerHTML = '';
   GAR.forEach(g => {
     const lv = save.up[g.k], c = garCost(lv), max = lv >= GAR_MAX, can = !max && save.scrap >= c;
-    if (!max && !can && (!goal || c < goal.c)) goal = { c, g, lv };
+    if (!max && !can && (!goal || c < goal.c)) goal = { c, ja: g.ja + ' Lv ' + (lv + 1), en: g.en + ' Lv ' + (lv + 1) };
     const b = document.createElement('button'); b.className = 'gbtn' + (can ? ' can' : ''); b.id = 'gar_' + g.k; b.disabled = !can;
     b.innerHTML = `<b>${jaEn(g.ja, g.en)} <i>Lv ${lv}</i></b><small>${g.d}</small><span class="cost">${max ? 'MAX' : NUT + c}</span>`;
-    b.addEventListener('click', () => { if (resH && resH.buy(g.k)) drawGarage(); });
+    b.addEventListener('click', () => { if (resH && resH.buy(g.k)) drawAll(); });
     box.appendChild(b);
   });
-  $('total').innerHTML = jaEn('所持 ', 'You have ') + NUT + save.scrap;
-  $('goal').textContent = goal ? jaEn(`あと ${goal.c - save.scrap} スクラップで「${goal.g.ja}」Lv ${goal.lv + 1}`, `${goal.c - save.scrap} more scrap for ${goal.g.en} Lv ${goal.lv + 1}`) : '';
+}
+function drawParts() {
+  const box = $('tab_parts'); box.innerHTML = '';
+  for (const [slot, ja, en] of MT.SLOTS) {
+    const lab = document.createElement('div'); lab.className = 'plab'; lab.textContent = jaEn(ja, en); box.appendChild(lab);
+    const row = document.createElement('div'); row.className = 'prow';
+    for (const p of MT.PARTS.filter(q => q.slot === slot)) {
+      const own = MT.owned(p.id), on = save.parts[slot] === p.id, can = !own && save.scrap >= p.cost;
+      if (!own && !can && (!goal || p.cost < goal.c)) goal = { c: p.cost, ja: p.ja[0], en: p.en[0] };
+      const b = document.createElement('button'); b.className = 'gbtn' + (on ? ' on' : own ? ' own' : can ? ' can' : ''); b.id = 'part_' + p.id; b.disabled = !own && !can;
+      b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : NUT + p.cost}</span>`;
+      b.addEventListener('click', () => { if (own ? MT.equip(p.id) : MT.buyPart(p.id)) { sfx.buy(); drawAll(); } });
+      row.appendChild(b);
+    }
+    box.appendChild(row);
+  }
+}
+function drawDaily() {
+  const D = MT.daily();
+  $('tab_daily').innerHTML = D.m.map(m => `<div class="dm${m.done ? ' done' : ''}"><span>${MT.dailyText(m)}</span><span>${m.done ? '✓' : m.p + ' / ' + m.n}　+${MT.DAILY_PAY}</span><div class="bar"><i style="width:${Math.round(m.p / m.n * 100)}%"></i></div></div>`).join('')
+    + `<div class="plab" style="text-align:center">${jaEn('3つ達成でボーナス +', 'All three: bonus +')}${MT.DAILY_BONUS}${D.bonus ? ' ✓' : ''}　${jaEn('毎日0時に入れ替わり', 'New missions every day')}</div>`;
 }

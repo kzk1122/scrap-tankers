@@ -1,5 +1,6 @@
 // 起動とメインループ、テスト用の入口
-import { diag, seed, save } from './core.js';
+import { diag, seed, save, setDayOff } from './core.js';
+import * as MT from './meta.js';
 import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality } from './gfx.js';
 import { initInput, pollInput, I } from './input.js';
 import { audioInit, audioPause, musicState } from './audio.js';
@@ -31,7 +32,7 @@ function boot() {
 }
 // ボットと確認用: 仮想時計で1フレームずつ進める
 window.__tk = {
-  manual(v) { T.manual = v; }, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, pick: pickUp, restart: startRun, save,
+  manual(v) { T.manual = v; }, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, pick: pickUp, restart: startRun, save,
   input(o) { I.ext = o; },
   step(n = 1, dt = 1 / 60, doRender = false) { for (let i = 0; i < n; i++) tick(dt, doRender && i === n - 1); return G.state; },
   go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },
