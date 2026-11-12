@@ -20,7 +20,7 @@ export function angLerp(a, b, k) {
 
 export const KEY = 'scrap_tankers_v1';
 function load(str) {
-  const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, parts: { hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, own: {}, daily: null, supply: null, mute: false, lang: null };
+  const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, parts: { hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, own: {}, daily: null, supply: null, login: null, mute: false, lang: null };
   try {
     const j = JSON.parse(str !== undefined ? str : localStorage.getItem(KEY) || 'null');
     if (j && j.v === 1) { Object.assign(d, j); d.up = Object.assign({ dmg: 0, hp: 0, spd: 0 }, j.up); d.parts = Object.assign({ hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, j.parts); d.own = j.own || {}; }

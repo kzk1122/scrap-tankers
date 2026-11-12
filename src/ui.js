@@ -115,10 +115,10 @@ function drawParts() {
     const lab = document.createElement('div'); lab.className = 'plab'; lab.textContent = jaEn(ja, en); box.appendChild(lab);
     const row = document.createElement('div'); row.className = 'prow';
     for (const p of MT.PARTS.filter(q => q.slot === slot)) {
-      const own = MT.owned(p.id), on = save.parts[slot] === p.id, can = !own && save.scrap >= p.cost;
-      if (!own && !can && (!goal || p.cost < goal.c)) goal = { c: p.cost, ja: p.ja[0], en: p.en[0] };
+      const own = MT.owned(p.id), on = save.parts[slot] === p.id, lock = p.cost < 0, can = !own && !lock && save.scrap >= p.cost;
+      if (!own && !can && !lock && (!goal || p.cost < goal.c)) goal = { c: p.cost, ja: p.ja[0], en: p.en[0] };
       const b = document.createElement('button'); b.className = 'gbtn' + (on ? ' on' : own ? ' own' : can ? ' can' : ''); b.id = 'part_' + p.id; b.disabled = !own && !can;
-      b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : NUT + p.cost}</span>`;
+      b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : lock ? jaEn('報酬', 'Reward') : NUT + p.cost}</span>`;
       b.addEventListener('click', () => { if (own ? MT.equip(p.id) : MT.buyPart(p.id)) { ev(own ? 'equip' : 'part', { k: p.id }); sfx.buy(); drawAll(); } });
       row.appendChild(b);
     }
@@ -126,7 +126,7 @@ function drawParts() {
   }
 }
 function drawDaily() {
-  const D = MT.daily();
-  $('tab_daily').innerHTML = D.m.map(m => `<div class="dm${m.done ? ' done' : ''}"><span>${MT.dailyText(m)}</span><span>${m.done ? '✓' : m.p + ' / ' + m.n}　+${MT.DAILY_PAY}</span><div class="bar"><i style="width:${Math.round(m.p / m.n * 100)}%"></i></div></div>`).join('')
+  const D = MT.daily(), ld = MT.loginDay();
+  $('tab_daily').innerHTML = `<div class="plab">${jaEn('ログイン報酬（遊んだ日ごとに1つ）', 'Login rewards (one per day you play)')}</div><div class="lg">${MT.LOGIN.map((v, i) => `<span class="${i < ld ? 'got' : ''}${i === ld ? ' nx' : ''}"><small>${jaEn(`${i + 1}日目`, `Day ${i + 1}`)}</small>${i === 6 ? '★' : ''}${NUT}${v}</span>`).join('')}</div><div class="plab">${jaEn('今日のミッション', "Today's missions")}</div>` + D.m.map(m => `<div class="dm${m.done ? ' done' : ''}"><span>${MT.dailyText(m)}</span><span>${m.done ? '✓' : m.p + ' / ' + m.n}　+${MT.DAILY_PAY}</span><div class="bar"><i style="width:${Math.round(m.p / m.n * 100)}%"></i></div></div>`).join('')
     + `<div class="plab" style="text-align:center">${jaEn('3つ達成でボーナス +', 'All three: bonus +')}${MT.DAILY_BONUS}${D.bonus ? ' ✓' : ''}　${jaEn('毎日0時に入れ替わり', 'New missions every day')}</div>`;
 }
