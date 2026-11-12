@@ -117,7 +117,7 @@ function drawParts() {
       const own = MT.owned(p.id), on = save.parts[slot] === p.id, can = !own && save.scrap >= p.cost;
       if (!own && !can && (!goal || p.cost < goal.c)) goal = { c: p.cost, ja: p.ja[0], en: p.en[0] };
       const b = document.createElement('button'); b.className = 'gbtn' + (on ? ' on' : own ? ' own' : can ? ' can' : ''); b.id = 'part_' + p.id; b.disabled = !own && !can;
-      b.innerHTML = `<b>${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : NUT + p.cost}</span>`;
+      b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : NUT + p.cost}</span>`;
       b.addEventListener('click', () => { if (own ? MT.equip(p.id) : MT.buyPart(p.id)) { sfx.buy(); drawAll(); } });
       row.appendChild(b);
     }

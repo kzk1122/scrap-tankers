@@ -72,9 +72,9 @@ export function initGame() {
 
 // 装備中のパーツに合わせて自機のモデルを作り直す
 function buildTank() {
-  const pt = save.parts, key = pt.hull + pt.turret; if (key === tankKey && tank) return; tankKey = key;
+  const pt = save.parts, key = pt.hull + pt.turret + pt.paint; if (key === tankKey && tank) return; tankKey = key;
   if (tank) scene.remove(tank.g);
-  tank = mkTank(0xd9780f, pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter', laser: pt.turret === 'laser', armor: pt.hull === 'bulk', light: pt.hull === 'light' });
+  tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter', laser: pt.turret === 'laser', armor: pt.hull === 'bulk', light: pt.hull === 'light' });
 }
 const TUR = {
   cannon: { n: 1, dm: 1, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 }, twin: { n: 2, dm: 0.65, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 },

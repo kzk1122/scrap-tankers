@@ -20,10 +20,10 @@ export function angLerp(a, b, k) {
 
 const KEY = 'scrap_tankers_v1';
 function load() {
-  const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, parts: { hull: 'std', turret: 'cannon', gear: 'none' }, own: {}, daily: null, supply: null, mute: false, lang: null };
+  const d = { v: 1, scrap: 0, stage: 1, runs: 0, best: 1, up: { dmg: 0, hp: 0, spd: 0 }, parts: { hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, own: {}, daily: null, supply: null, mute: false, lang: null };
   try {
     const j = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (j && j.v === 1) { Object.assign(d, j); d.up = Object.assign({ dmg: 0, hp: 0, spd: 0 }, j.up); d.parts = Object.assign({ hull: 'std', turret: 'cannon', gear: 'none' }, j.parts); d.own = j.own || {}; }
+    if (j && j.v === 1) { Object.assign(d, j); d.up = Object.assign({ dmg: 0, hp: 0, spd: 0 }, j.up); d.parts = Object.assign({ hull: 'std', turret: 'cannon', gear: 'none', paint: 'orange' }, j.parts); d.own = j.own || {}; }
   } catch (e) { /* 保存が使えなくても遊べる */ }
   return d;
 }
