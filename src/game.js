@@ -3,7 +3,7 @@ import { THREE, rnd, rr, clamp, angLerp, save, persist, jaEn } from './core.js';
 import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake } from './gfx.js';
 import * as W from './world.js';
 import { I } from './input.js';
-import { sfx } from './audio.js';
+import { sfx, music, musicVol } from './audio.js';
 import * as UI from './ui.js';
 import { platform } from './platform.js';
 
@@ -93,7 +93,8 @@ export function startRun() {
   W.genWorld();
   E.length = B.length = K.length = M.length = boomQ.length = 0;
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, stage: save.stage, won: false, first: save.runs === 0 });
+  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, stage: save.stage, won: false, dng: 0, first: save.runs === 0 });
+  music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false });
   hull.visible = turret.visible = true; tgt = null;
   save.runs++; persist(); UI.hideAll(); UI.setBoss(-1);
@@ -189,6 +190,7 @@ export function pickUp(i) {
 function showResult() {
   bank(); if (G.won) { save.stage++; save.best = Math.max(save.best, save.stage); } persist();
   G.state = 'result';
+  music('calm'); musicVol(0.45);
   UI.showResult({ win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap }, { buy: buyGar, go: startRun });
 }
 function buyGar(k) {
@@ -216,6 +218,9 @@ export function update(dt) {
   const live = G.state === 'play';
   if (live) G.t += dt;
   if (G.inv > 0) G.inv -= dt;
+  // 体力が赤（20%未満）の間は緊迫曲。回復しても少しの間は続けて、曲が細かく切り替わらないようにする
+  if (live) { if (P.hp / S.maxhp < 0.2) G.dng = 2.5; else if (G.dng > 0) G.dng -= dt; music(G.dng > 0 ? 'danger' : 'calm'); musicVol(1); }
+  else { music('calm'); musicVol(0.45); }
   // ---- 自機 ----
   if (live) {
     const k = 1 - Math.exp(-14 * dt); P.vx += (I.mx * S.speed - P.vx) * k; P.vz += (I.mz * S.speed - P.vz) * k;

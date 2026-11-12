@@ -21,6 +21,7 @@ export function initUi() {
   });
 }
 export function hud(d) {
+  const r = d.hp / d.maxhp, lvl = r < 0.2 ? 'crit' : r < 0.5 ? 'warn' : ''; if (cache.hpc !== lvl) { cache.hpc = lvl; $('hpbar').className = 'bar hp ' + lvl; }
   wid('hpb', d.hp / d.maxhp); txt('hpn', Math.ceil(d.hp) + ' / ' + d.maxhp);
   wid('xpb', d.xp / d.need); txt('lv', 'Lv ' + d.lvl);
   txt('wave', d.wave >= NWAVE ? 'BOSS' : 'WAVE ' + Math.max(1, d.wave + 1) + ' / ' + NWAVE);
