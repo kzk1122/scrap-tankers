@@ -259,11 +259,11 @@ function buyGar(k) {
 
 // 初回の案内: 「動く → 撃つ」を1つずつ、できるまで消さない（PC）。スマホは動くまで
 function tutorial() {
-  if (I.moved) once('move', { s: Math.round(G.t), by: I.touch ? 'touch' : I.auto ? 'click' : 'keys' });
+  if (I.moved) once('move', { s: Math.round(G.t), by: I.touch ? 'touch' : I.auto ? 'mouse' : 'keys' });
   if (G.tut >= 2) return;
   if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
-  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('クリックした場所へ移動　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Click where you want to go, or move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>'), true); }
-  if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(I.auto ? jaEn('狙いと射撃は自動　押しっぱなしで追いかける', 'Aiming and firing are automatic. Hold the button to keep following') : jaEn('マウスで狙う　射撃は自動', 'Aim with the mouse. Your tank fires automatically'), G.kills < 1); }
+  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('マウスを動かすと戦車がついてくる　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Move the mouse and your tank follows. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> works too'), true); }
+  if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(I.auto ? jaEn('狙いと射撃は自動　敵から逃げながら戦おう', 'Aiming and firing are automatic. Keep moving away from enemies') : jaEn('マウスで狙う　射撃は自動', 'Aim with the mouse. Your tank fires automatically'), G.kills < 1); }
 }
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
   let best = null, bd = (S.bspd * S.blife + 1) ** 2;

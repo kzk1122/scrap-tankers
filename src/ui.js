@@ -40,7 +40,7 @@ export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden =
 // PC では操作方法を常に左下へ出す（スマホでは出さない）
 export function legend(show) {
   const k = $('keys'); if (cache.keys === show) return; cache.keys = show; k.hidden = !show;
-  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('移動', 'Move')], [jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('その場所へ移動', 'Go there')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('狙う', 'Aim')], [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; pickCb = null; resH = null; }
 
