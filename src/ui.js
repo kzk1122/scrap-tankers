@@ -17,6 +17,11 @@ const armed = () => performance.now() - openAt > 380; // 連打で誤って選�
 export function initUi() {
   $('mute').addEventListener('click', () => { audioInit(); $('mute').classList.toggle('off', toggleMute()); });
   $('mute').classList.toggle('off', save.mute);
+  if (TARGET === 'artifact') { // 試作版だけ: 必殺技ゲージのたまり方を切り替える
+    const b = $('spmode'), M = ['mix', 'kill', 'time'], L = { mix: jaEn('ゲージ: 撃破＋時間', 'Gauge: kills + time'), kill: jaEn('ゲージ: 撃破だけ', 'Gauge: kills only'), time: jaEn('ゲージ: 時間だけ', 'Gauge: time only') };
+    const draw = () => { b.textContent = L[save.spMode || 'mix']; }; b.hidden = false; draw();
+    b.addEventListener('click', () => { save.spMode = M[(M.indexOf(save.spMode || 'mix') + 1) % 3]; persist(); draw(); });
+  }
   window.addEventListener('keydown', e => {
     if (!$('lvl').hidden && armed() && e.key >= '1' && e.key <= '3') { if (pickCb) pickCb(+e.key - 1); }
     else if (!$('res').hidden && armed() && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (resH) resH.go(); }

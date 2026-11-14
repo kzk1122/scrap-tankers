@@ -1,5 +1,5 @@
 // ゲーム本体: 自機、敵、弾、歯車、波、強化、勝敗
-import { THREE, rnd, rr, clamp, angLerp, save, persist, jaEn } from './core.js';
+import { THREE, rnd, rr, clamp, angLerp, save, persist, jaEn, TARGET } from './core.js';
 import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake, applyTheme, mkTank, moveTracks, tankGeo, fxExplode, fxMuzzle, fxSparks, fxDust, fxSplash, fxAmb, addMark, clearMarks, flash, setWarn } from './gfx.js';
 import { themeOf, areaOf } from './themes.js';
 import * as W from './world.js';
@@ -243,7 +243,9 @@ function shoot() {
   P.recoil = 1; sfx.shot(); fxMuzzle(P.x + Math.sin(P.ty) * 2.3, P.z + Math.cos(P.ty) * 2.3, P.ty);
 }
 // ---- 必殺技: 敵を倒すとゲージがたまり、満タンで大砲撃 ----
-function charge(v) { if (G.state === 'play') G.sp = Math.min(1, G.sp + v / Math.min(3.5, 1 + 0.35 * G.spN)); } // 使うたびに少したまりにくくなる
+// 試作版だけ、たまり方を切り替えて遊び比べられる（mix: 撃破が主で時間でも少し / kill: 撃破だけ / time: 時間だけ）
+const SPM = { mix: [1, 1], kill: [1.35, 0], time: [0, 3.6] };
+function charge(v, time) { if (G.state !== 'play') return; const m = SPM[TARGET === 'artifact' && save.spMode || 'mix'] || SPM.mix; G.sp = Math.min(1, G.sp + v * m[time ? 1 : 0] / Math.min(3.5, 1 + 0.35 * G.spN)); } // 使うたびに少したまりにくくなる
 function special() {
   if (G.sp < 1 || G.state !== 'play') return;
   G.sp = 0; G.spN++; ev('sp', { s: Math.round(G.t), n: G.spN }); if (!save.sp1) { save.sp1 = 1; persist(); }
@@ -470,7 +472,7 @@ export function update(dt) {
     const m = M[i]; m.t += dt; if (m.t < 0.4) continue;
     for (const e of E) { if (e.dead) continue; if ((e.x - m.x) ** 2 + (e.z - m.z) ** 2 < (e.r + 0.9) ** 2) { M.splice(i, 1); explode(m.x, m.z, 3.2 + 0.4 * S.mine, 35 * (S.dmg / 10)); break; } }
   }
-  if (live) { charge(dt * 0.01); if (I.sp) special(); } I.sp = false;
+  if (live) { charge(dt * 0.01, true); if (I.sp) special(); } I.sp = false;
   for (let i = SQ.length - 1; i >= 0; i--) { const q = SQ[i]; q.t -= dt; if (q.t <= 0) { SQ.splice(i, 1); explode(q.x, q.z, q.R, q.d); flash(q.x, q.z, q.R, 0xffd08a); burst(q.x, 1, q.z, q.R > 6 ? 40 : 12, 0xffb21e, 13, 0.5, 0.8); if (q.R > 6) addShake(0.8); } }
   for (let i = boomQ.length - 1; i >= 0; i--) { const q = boomQ[i]; q.t -= dt; if (q.t <= 0) { boomQ.splice(i, 1); explode(q.x, q.z, 5, 70); } }
   for (let i = H.length - 1; i >= 0; i--) { // 着弾
