@@ -96,10 +96,12 @@ export function initGame() {
 function buildTank() {
   const pt = save.parts, key = pt.hull + pt.turret + pt.paint; if (key === tankKey && tank) return; tankKey = key;
   if (tank) scene.remove(tank.g);
-  tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter', laser: pt.turret === 'laser', armor: pt.hull === 'bulk', light: pt.hull === 'light' });
+  tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : pt.hull === 'assault' ? 0.86 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter' || pt.turret === 'blast', long: pt.turret === 'rail', laser: pt.turret === 'laser', armor: pt.hull === 'bulk' || pt.hull === 'assault', light: pt.hull === 'light' });
 }
 const pt0 = () => save.parts;
+const HULL = { std: [1, 1], light: [1.18, 0.8], bulk: [0.88, 1.45], assault: [1.1, 1.25] };
 const TUR = {
+  blast: { n: 1, dm: 0.9, rm: 0.85, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0, boom: 2 }, rail: { n: 1, dm: 1.6, rm: 0.65, lm: 1.5, sm: 1.3, sp: 0.1, pierce: 1, c: 0 },
   cannon: { n: 1, dm: 1, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 }, twin: { n: 2, dm: 0.65, rm: 1, lm: 1, sm: 1, sp: 0.13, pierce: 0, c: 0 },
   scatter: { n: 5, dm: 0.42, rm: 0.72, lm: 0.6, sm: 1, sp: 0.17, pierce: 0, c: 0 }, laser: { n: 1, dm: 0.8, rm: 0.9, lm: 0.55, sm: 2.1, sp: 0.08, pierce: 3, c: 2 },
 };
@@ -123,15 +125,15 @@ function setTheme(stage) {
   instFar.end();
 }
 function recalc() {
-  const pt = save.parts, tu = TUR[pt.turret] || TUR.cannon, hm = pt.hull === 'light' ? [1.18, 0.8] : pt.hull === 'bulk' ? [0.88, 1.45] : [1, 1];
+  const pt = save.parts, tu = TUR[pt.turret] || TUR.cannon, hm = HULL[pt.hull] || HULL.std, bm = u.boom + (tu.boom || 0);
   S.dmg = 10 * (1 + 0.1 * save.up.dmg) * (1 + 0.3 * u.heavy) * tu.dm;
-  S.rate = 2.6 * (1 + 0.25 * u.rapid) * tu.rm;
+  S.rate = 2.6 * (1 + 0.25 * u.rapid) * tu.rm * (pt.gear === 'loader' ? 1.2 : 1);
   S.shots = tu.n + u.split; S.spread = tu.sp; S.pierce = u.pierce + tu.pierce; S.bounce = u.bounce; S.rear = u.rear; S.bc = tu.c;
-  S.exR = u.boom ? 2.0 + 0.6 * u.boom : 0;
+  S.exR = bm ? 2.0 + 0.6 * bm : 0;
   S.maxhp = Math.round((100 + 15 * save.up.hp) * hm[1]) + 25 * u.armor;
   S.speed = 9.9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine) * hm[0];
   S.gear = pt.gear;
-  S.mag = 4 * (1 + 0.6 * u.magnet); S.regen = 1.2 * u.regen; S.mine = u.mine + (S.gear === 'mines' ? 1 : 0);
+  S.mag = 4 * (1 + 0.6 * u.magnet) * (pt.gear === 'arm' ? 1.8 : 1); S.regen = 1.2 * u.regen + (pt.gear === 'repair' ? 1.5 : 0); S.mine = u.mine + (S.gear === 'mines' ? 1 : 0);
   S.crit = 0.12 * u.crit; S.frost = u.frost; S.orbit = u.orbit; S.salvo = u.salvo; S.plate = 1 - 0.1 * u.plate;
   S.bspd = 30 * (1 + 0.2 * u.long) * tu.sm; S.blife = 0.7 * tu.lm;
 }
@@ -246,11 +248,11 @@ export function pickUp(i) {
 }
 function showResult() {
   MT.loginTick(); const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
-  bank(); if (G.won) { save.stage++; save.best = Math.max(save.best, save.stage); } persist();
+  let unl = []; bank(); if (G.won) { save.stage++; if (save.stage > save.best) { save.best = save.stage; unl = MT.unlockedAt(save.best); } } persist();
   G.state = 'result';
   ev('end', { run: save.runs, stage: G.stage, wave: G.wave, won: G.won ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
   music('calm'); musicVol(0.45);
-  const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next }, { buy: buyGar, go: startRun }); G.arrived = null;
+  const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next, unlocked: unl }, { buy: buyGar, go: startRun }); G.arrived = null;
 }
 function buyGar(k) {
   const lv = save.up[k], c = garCost(lv); if (lv >= GAR_MAX || save.scrap < c) return false;
