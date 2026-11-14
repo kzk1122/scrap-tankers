@@ -30,7 +30,13 @@ export function hud(d) {
   txt('wave', d.wave >= NWAVE ? 'BOSS' : 'WAVE ' + Math.max(1, d.wave + 1) + ' / ' + NWAVE);
   const s = d.t | 0; txt('time', jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0'));
   txt('scr', d.scrap);
+  const p = Math.round(Math.min(1, d.sp) * 50), rdy = d.sp >= 1; // 必殺技ゲージ
+  if (cache.sp !== p) { cache.sp = p; $('sp').style.setProperty('--p', p * 2 + '%'); }
+  if (cache.spr !== rdy) { cache.spr = rdy; $('sp').classList.toggle('ready', rdy); }
+  if (cache.spk !== touchUi) { cache.spk = touchUi; $('spk').textContent = touchUi ? 'TAP' : 'SPACE'; $('spl').textContent = jaEn('必殺', 'BLAST'); }
+  if (cache.sph !== d.spHint) { cache.sph = d.spHint; $('sptip').hidden = !d.spHint; if (d.spHint) $('sptip').innerHTML = touchUi ? jaEn('必殺技がたまった！ ボタンを押すと大砲撃', 'Special ready! Tap the button for a big blast') : jaEn('必殺技がたまった！ <kbd>Space</kbd> か右クリックで大砲撃', 'Special ready! Press <kbd>Space</kbd> or right-click for a big blast'); }
 }
+let touchUi = false;
 export function setBoss(f) { const w = $('bossw'); if (f < 0) { if (!w.hidden) w.hidden = true; return; } if (w.hidden) w.hidden = false; wid('bossb', f); }
 function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 export function banner(t, big) { const b = $('banner'); b.textContent = t; b.classList.toggle('big', !!big); replay(b, 'show'); }
@@ -39,8 +45,8 @@ export function vignette() { replay($('vig'), 'show'); }
 export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden = true; return; } if (cache.hint !== html) { cache.hint = html; h.innerHTML = html; } h.classList.toggle('pulse', !!pulse); h.hidden = false; }
 // PC では操作方法を常に左下へ出す（スマホでは出さない）
 export function legend(show) {
-  const k = $('keys'); if (cache.keys === show) return; cache.keys = show; k.hidden = !show;
-  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  touchUi = !show; const k = $('keys'); if (cache.keys === show) return; cache.keys = show; k.hidden = !show;
+  if (show && !k.firstChild) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; pickCb = null; resH = null; }
 

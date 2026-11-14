@@ -8,7 +8,7 @@ await p.goto('file://' + process.cwd() + '/dist/index.html'); await p.waitForTim
 for (const mode of MODES) {
   const rows = [];
   for (let r = 0; r < RUNS; r++) {
-    const res = await p.evaluate(({ mode, r, up, stage, parts }) => {
+    const res = await p.evaluate(({ mode, r, up, stage, parts, process_nosp }) => {
       const T = window.__tk; T.manual(true); T.seed(1000 + r * 77); T.save.up = { dmg: up, hp: up, spd: up }; T.save.stage = stage; if (parts) { const q = parts.split('/'); T.save.parts = { hull: q[0], turret: q[1], gear: q[2], paint: 'orange' }; } T.restart();
       let s, ang = 0, first = -1, lvT = [], hold = 0, mx = 0, mz = 0;
       for (let f = 0; f < 60 * 480; f++) {
@@ -23,15 +23,15 @@ for (const mode of MODES) {
             for (const e of st.foe) { const dx = st.x - e[0], dz = st.z - e[1], d = Math.hypot(dx, dz) || 1; vx += dx / d * 6 / (d * d); vz += dz / d * 6 / (d * d); }
             let g = null, gd = 400; for (const k of st.gear) { const d = (k[0] - st.x) ** 2 + (k[1] - st.z) ** 2; if (d < gd) { gd = d; g = k; } }
             if (g) { const d = Math.sqrt(gd) || 1; vx += (g[0] - st.x) / d * 0.5; vz += (g[1] - st.z) / d * 0.5; }
-            const l = Math.hypot(vx, vz); if (l > 0.05) { mx = vx / l; mz = vz / l; } T.input({ mx, mz, auto: true });
+            const l = Math.hypot(vx, vz); if (l > 0.05) { mx = vx / l; mz = vz / l; } T.input({ mx, mz, auto: true, sp: !process_nosp });
           }
         }
         s = T.step(1);
         if (s === 'levelup') { const st = T.state(); if (first < 0) first = st.t; lvT.push(st.t | 0); const PR = ['rapid', 'heavy', 'split', 'crit', 'pierce', 'boom', 'bounce', 'orbit', 'salvo', 'armor', 'regen', 'frost', 'rear', 'plate', 'vamp', 'engine', 'mine', 'long', 'magnet', 'scav']; let bi = 0, bp = 99; (st.ch || []).forEach((id, i) => { const q = PR.indexOf(id); if (q >= 0 && q < bp) { bp = q; bi = i; } }); T.pick(mode === 'good' ? bi : (Math.random() * 3) | 0); }
         if (s === 'result') break;
       }
-      const st = T.state(); return { t: st.t | 0, wave: st.wave + 1, lvl: st.lvl, kills: st.kills, scrap: st.scrap, won: st.won, first: +first.toFixed(1), hp: st.hp | 0 };
-    }, { mode, r, up: +(process.env.UP || 0), stage: +(process.env.STAGE || 1), parts: process.env.PARTS || '' });
+      const st = T.state(); return { t: st.t | 0, wave: st.wave + 1, lvl: st.lvl, kills: st.kills, scrap: st.scrap, won: st.won, sp: st.spN, first: +first.toFixed(1), hp: st.hp | 0 };
+    }, { mode, r, up: +(process.env.UP || 0), stage: +(process.env.STAGE || 1), parts: process.env.PARTS || '', process_nosp: !!process.env.NOSP });
     rows.push(res); console.log(mode, JSON.stringify(res));
   }
   const med = k => rows.map(x => x[k]).sort((a, b) => a - b)[rows.length >> 1];
