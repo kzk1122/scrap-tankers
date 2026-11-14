@@ -257,8 +257,8 @@ export function applyTheme(th, feat) {
   setGrass(th); setWater(feat); sea.visible = !!th.sea; outer.visible = !th.sea;
 }
 export function addShake(a) { shake = Math.min(1.2, shake + a); }
-export function camUpdate(px, pz, dt, snap) {
-  const k = snap ? 1 : 1 - Math.exp(-7 * dt); cx += (px - cx) * k; cz += (pz - cz) * k;
+export function camUpdate(px, pz, dt, snap, stiff = 7) {
+  const k = snap ? 1 : 1 - Math.exp(-stiff * dt); cx += (px - cx) * k; cz += (pz - cz) * k;
   const H = camera.aspect >= 1 ? 27 : 40; shake *= Math.exp(-9 * dt);
   const sx = (R() - 0.5) * shake, sz = (R() - 0.5) * shake;
   camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz);

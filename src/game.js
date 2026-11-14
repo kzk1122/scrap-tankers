@@ -337,7 +337,7 @@ function tutorial() {
   if (I.moved) once('move', { s: Math.round(G.t), by: I.touch ? 'touch' : I.auto ? 'mouse' : 'keys' });
   if (G.tut >= 2) return;
   if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
-  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('マウスを動かすと戦車がついてくる　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Move the mouse and your tank follows. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> works too'), true); }
+  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(I.lock ? jaEn('マウスを動かした方向へ戦車が進む　<b>クリックで止まる</b>', 'Move the mouse to drive that way. <b>Click to stop</b>') : jaEn('マウスを動かすと戦車がついてくる　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Move the mouse and your tank follows. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> works too'), true); }
   if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(I.auto ? jaEn('狙いと射撃は自動　敵から逃げながら戦おう', 'Aiming and firing are automatic. Keep moving away from enemies') : jaEn('マウスで狙う　射撃は自動', 'Aim with the mouse. Your tank fires automatically'), G.kills < 1); }
 }
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
@@ -359,7 +359,7 @@ export function update(dt) {
   // ---- 自機 ----
   if (live) {
     const wet = W.inWater(P.x, P.z), spd = S.speed * (wet ? 0.62 : 1);
-    const k = 1 - Math.exp(-14 * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
+    const k = 1 - Math.exp(-(I.touch ? 14 : I.mx || I.mz ? 30 : 13) * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
     if (I.mx || I.mz) { G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.07; const bx = P.x - Math.sin(P.ry) * 1.1, bz = P.z - Math.cos(P.ry) * 1.1; if (wet) { fxSplash(bx, bz, 2); if (rnd() < 0.2) ring(P.x, P.z, 2.2, 0x9fd8ff); } else fxDust(bx, bz, TH.dust, 1); } }
     const ax0 = P.vx0 || 0, az0 = P.vz0 || 0, acx = (P.vx - ax0) / dt, acz = (P.vz - az0) / dt, fw = acx * Math.sin(P.ry) + acz * Math.cos(P.ry), sd = acx * Math.cos(P.ry) - acz * Math.sin(P.ry), kt = 1 - Math.exp(-8 * dt);
     P.pitch += (clamp(-fw * 0.006, -0.09, 0.09) - P.pitch) * kt; P.roll += (clamp(sd * 0.006, -0.08, 0.08) - P.roll) * kt; P.vx0 = P.vx; P.vz0 = P.vz;
@@ -515,7 +515,7 @@ export function draw(time) {
   instGear.end(); instHeal.end();
   instSaw.begin(); for (let j = 0; j < S.orbit && !P.dead; j++) { const a = (P.oa || 0) + j / S.orbit * 6.283; instSaw.put(P.x + Math.sin(a) * 3.3, 1, P.z + Math.cos(a) * 3.3, time * 14, 1); } instSaw.end();
   instMine.begin(); for (const m of M) instMine.put(m.x, 0, m.z, 0, Math.min(1, m.t * 4)); instMine.end();
-  UI.legend(!I.touch);
+  UI.legend(!I.touch, I.lock);
   UI.hud({ hp: P.hp, maxhp: S.maxhp, xp: G.xp, need: need(G.lvl), lvl: G.lvl, wave: G.wave, t: G.t, scrap: save.scrap + G.scrap - G.banked, stage: G.stage, place: jaEn(TH.ja, TH.en), sp: G.sp, spHint: G.state === 'play' && G.sp >= 1 && !save.sp1 });
 }
 // テストとボット用の状態
