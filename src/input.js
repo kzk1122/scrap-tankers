@@ -40,7 +40,7 @@ export function initInput(onFirst) {
     if (e.pointerType === 'touch') {
       I.touch = true;
       if (joyId === null) { joyId = e.pointerId; ox = e.clientX; oy = e.clientY; jx = jy = 0; joyEl.hidden = false; joyEl.style.left = ox + 'px'; joyEl.style.top = oy + 'px'; joyEl.firstElementChild.style.transform = 'translate(-50%,-50%)'; }
-    } else { I.touch = false; if (e.button === 0) { lockOff = false; tryLock(); } if (e.button === 0) { mouseDown = true; I.click = true; kbd = false; follow = true; } else if (e.button === 2) I.sp = true; setNdc(e); }
+    } else { I.touch = false; if (e.button === 0) { if (locked) kx = ky = 0; /* スティック中の左クリックはブレーキ */ lockOff = false; tryLock(); } if (e.button === 0) { mouseDown = true; I.click = true; kbd = false; follow = true; } else if (e.button === 2) I.sp = true; setNdc(e); }
   });
   window.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch') {
@@ -71,7 +71,7 @@ export function pollInput(camera) {
   if (joyId !== null) { x = jx; z = jy; if (Math.hypot(x, z) < 0.15) x = z = 0; }
   const l = Math.hypot(x, z); if (l > 1) { x /= l; z /= l; }
   if (locked) { // スティックの輪を戦車の位置に出す
-    tv.set(I.px, 1, I.pz).project(camera); joyEl.style.left = (tv.x + 1) / 2 * innerWidth + 'px'; joyEl.style.top = (1 - tv.y) / 2 * innerHeight + 'px'; joyEl.firstElementChild.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+    tv.set(I.px, 1, I.pz).project(camera); joyEl.style.left = (tv.x + 1) / 2 * innerWidth + 'px'; joyEl.style.top = (1 - tv.y) / 2 * innerHeight + 'px'; joyEl.firstElementChild.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`; joyEl.classList.toggle('stop', Math.hypot(kx, ky) / KR <= 0.25);
   }
   if (!I.touch && !locked) { ray.setFromCamera(ndc, camera); if (ray.ray.intersectPlane(plane, hitP)) { I.ax = hitP.x; I.az = hitP.z; } }
   if (l > 0) { kbd = true; follow = false; I.auto = locked; }
