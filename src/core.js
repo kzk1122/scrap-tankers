@@ -1,5 +1,6 @@
 // 土台: three の再エクスポート、乱数、言語、保存、画面へのエラー表示
 import * as THREE from 'three';
+import { T as TR, LANGS } from './i18n.js';
 export { THREE };
 export const TARGET = __TARGET__; // 'artifact' | 'site' | 'cg'（出し先。build.mjs が決める）
 
@@ -39,12 +40,29 @@ export const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset
 export function persist() { const s = JSON.stringify(save); try { localStorage.setItem(KEY, s); } catch (e) { /* noop */ } if (persistCb) persistCb(s); }
 
 function pickLang() {
-  try { const q = new URLSearchParams(location.search).get('lang'); if (q === 'ja' || q === 'en') return q; } catch (e) { /* noop */ }
-  if (save.lang) return save.lang;
-  return (navigator.language || 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+  const ok = ['ja', 'en', ...LANGS], pre = v => String(v || '').toLowerCase().slice(0, 2);
+  try { const q = pre(new URLSearchParams(location.search).get('lang')); if (ok.includes(q)) return q; } catch (e) { /* noop */ }
+  if (ok.includes(save.lang)) return save.lang;
+  const n = pre(navigator.language); return ok.includes(n) ? n : 'en';
 }
 export const LANG = pickLang();
-export const jaEn = (ja, en) => LANG === 'ja' ? ja : en;
+try { document.documentElement.lang = LANG; } catch (e) { /* noop */ }
+// 日本語と英語は呼び出し側が持つ。ほかの言語は英語の文をキーに i18n.js の表から引く。数や名前の入る文は型（{0} {1}）で合わせる
+const LI = LANGS.indexOf(LANG), PAT = [], memo = new Map();
+if (LI >= 0) {
+  for (const k of Object.keys(TR)) if (k.includes('{')) PAT.push([new RegExp('^' + k.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{\d\}/g, '(.+?)') + '$'), (k.match(/\{\d\}/g) || []).map(x => +x[1]), TR[k][LI], k.length]);
+  PAT.sort((a, b) => b[3] - a[3]);
+}
+export const missing = new Set(); // 表にない文（テストで確認する）
+function tr(en, inner) {
+  const hit = TR[en]; if (hit) return hit[LI];
+  if (memo.has(en)) return memo.get(en);
+  let out = en, found = false;
+  for (const [re, idx, tpl] of PAT) { const m = re.exec(en); if (!m) continue; out = tpl.replace(/\{(\d)\}/g, (_, d) => { const v = m[idx.indexOf(+d) + 1]; return /^[\d.,+\-% ]*$/.test(v) ? v : tr(v, true); }); found = true; break; }
+  if (!found && !inner && /[A-Za-z]{3}/.test(en.replace(/<[^>]+>/g, '').replace(/\b(Lv|HP|WAVE|BOSS|MAX)\b/g, ''))) missing.add(en);
+  if (memo.size < 500) memo.set(en, out); return out;
+}
+export const jaEn = (ja, en) => LANG === 'ja' ? ja : LI < 0 ? en : tr(en);
 
 export function diag(msg) {
   const el = document.getElementById('diag'); if (!el) return;

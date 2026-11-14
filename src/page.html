@@ -79,7 +79,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
 #gart{font-size:13px;color:var(--dim);display:flex;justify-content:space-between;gap:8px}
 #gar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .gbtn{display:flex;flex-direction:column;gap:2px;align-items:center;padding:8px 4px;border-radius:14px;border:2px solid var(--line);border-bottom-width:5px;background:var(--dark);color:var(--dim);font:inherit;min-width:0}
-.gbtn b{font-size:14px;color:var(--ink)}.gbtn i{font-style:normal;color:var(--xp);font-size:12px}
+.gbtn b{font-size:14px;color:var(--ink);max-width:100%;overflow-wrap:anywhere;hyphens:auto}.gbtn small,.card b,.card small{overflow-wrap:anywhere;hyphens:auto}.gbtn i{font-style:normal;color:var(--xp);font-size:12px}
 .gbtn small{font-size:11px}.gbtn .cost{font-size:14px;font-variant-numeric:tabular-nums}
 .gbtn.can{border-color:var(--gold);color:var(--gold);cursor:pointer;animation:glow 1s ease-in-out infinite alternate}
 @keyframes glow{to{box-shadow:0 0 14px var(--gold2)}}
