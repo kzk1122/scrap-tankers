@@ -59,8 +59,8 @@ export function pollInput(camera) {
   else if (!I.touch && follow) {
     I.auto = true;
     // カメラの中心（戦車が落ち着く場所）からカーソルまでを見る。戦車やカメラが動いても向きと強さが変わらないので、滑らずに狙った所で止まれる
-    const dx = I.ax - camera.position.x, dz = I.az - (camera.position.z - camera.position.y * 0.52), d = Math.hypot(dx, dz) || 1, k = Math.min(1, (d - STOP_R) / 1.4); // スマホのスティックと同じ考え方: 戦車のまわりの円の中にカーソルを置くと止まり、外に出すとその方向へすぐ全速
-    if (k > 0) { const m = 0.45 + 0.55 * k; x = dx / d * m; z = dz / d * m; }
+    const dx = I.ax - camera.position.x, dz = I.az - (camera.position.z - camera.position.y * 0.52), d = Math.hypot(dx, dz) || 1, k = Math.min(1, (d - STOP_R) / 1.0); // スマホのスティックと同じ考え方: 戦車のまわりの円の中にカーソルを置くと止まり、外に出すとその方向へすぐ全速
+    if (k > 0) { const m = 0.6 + 0.4 * k; x = dx / d * m; z = dz / d * m; }
   }
   I.mx = x; I.mz = z; if (Math.hypot(x, z) > 0.3) I.moved = true;
   I.fire = mouseDown;

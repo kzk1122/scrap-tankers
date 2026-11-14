@@ -13,7 +13,7 @@ const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
   T.time += dt; pollInput(camera); update(dt);
   if (!doRender) return;
-  updParticles(dt); updRings(dt); draw(T.time); camUpdate(P.x, P.z, dt, false); render();
+  updParticles(dt); updRings(dt); draw(T.time); camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 12); render();
 }
 let last = 0, shown = false;
 function frame(now) {
