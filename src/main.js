@@ -7,7 +7,7 @@ import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
 import * as MX from './metrics.js';
 import { initUi } from './ui.js';
-import { initGame, startRun, update, draw, snapshot, pickUp, bank, G, P } from './game.js';
+import { initGame, startRun, update, draw, snapshot, toBoss, pickUp, bank, G, P } from './game.js';
 
 const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
@@ -37,7 +37,7 @@ async function boot() {
 }
 // ボットと確認用: 仮想時計で1フレームずつ進める
 window.__tk = {
-  manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, pick: pickUp, restart: startRun, save,
+  manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, boss: toBoss, pick: pickUp, restart: startRun, save,
   input(o) { I.ext = o; },
   step(n = 1, dt = 1 / 60, doRender = false) { for (let i = 0; i < n; i++) tick(dt, doRender && i === n - 1); return G.state; },
   go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },
