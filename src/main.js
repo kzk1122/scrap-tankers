@@ -2,7 +2,7 @@
 import { diag, seed, save, setDayOff } from './core.js';
 import * as MT from './meta.js';
 import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality } from './gfx.js';
-import { initInput, pollInput, I } from './input.js';
+import { initInput, pollInput, setLock, I } from './input.js';
 import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
 import * as MX from './metrics.js';
@@ -11,7 +11,7 @@ import { initGame, startRun, update, draw, snapshot, toBoss, pickUp, bank, G, P 
 
 const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
-  T.time += dt; pollInput(camera); update(dt);
+  T.time += dt; setLock(G.state === 'play'); pollInput(camera); update(dt);
   if (!doRender) return;
   updParticles(dt); updRings(dt); draw(T.time); camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 28); render();
 }

@@ -337,7 +337,7 @@ function tutorial() {
   if (I.moved) once('move', { s: Math.round(G.t), by: I.touch ? 'touch' : I.auto ? 'mouse' : 'keys' });
   if (G.tut >= 2) return;
   if (I.touch) { if (I.moved && G.t > 3) { G.tut = 2; UI.hint(null); } else UI.hint(jaEn('画面をドラッグで移動　攻撃は自動', 'Drag to move. Your tank fires automatically'), true); return; }
-  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(jaEn('マウスを動かすと戦車がついてくる　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Move the mouse and your tank follows. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> works too'), true); }
+  if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(I.lock ? jaEn('マウスを動かした方向へ戦車が進む　輪のまん中に戻すと止まる', 'Move the mouse to drive that way. Bring the dot back to the middle to stop') : jaEn('マウスを動かすと戦車がついてくる　<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> キーでも動ける', 'Move the mouse and your tank follows. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> works too'), true); }
   if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(I.auto ? jaEn('狙いと射撃は自動　敵から逃げながら戦おう', 'Aiming and firing are automatic. Keep moving away from enemies') : jaEn('マウスで狙う　射撃は自動', 'Aim with the mouse. Your tank fires automatically'), G.kills < 1); }
 }
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
