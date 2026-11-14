@@ -36,9 +36,10 @@ export const UPS = [
 ];
 // ガレージの永続強化（スクラップで買う）
 export const GAR = [
-  { k: 'dmg', ja: '火力', en: 'Firepower', d: '+10%' }, { k: 'hp', ja: '装甲', en: 'Armor', d: '+15 HP' }, { k: 'spd', ja: '機動', en: 'Mobility', d: '+4%' }];
-export const garCost = lv => Math.round(15 * Math.pow(1.5, lv));
-export const GAR_MAX = 10;
+  { k: 'dmg', ja: '火力', en: 'Firepower', d: '+10%' }, { k: 'hp', ja: '装甲', en: 'Armor', d: '+15 HP' }, { k: 'spd', ja: '機動', en: 'Mobility', d: '+4%', d2: '+1%' }];
+// Lv10までは1.5倍ずつ、そこから先は1.08倍ずつ（1〜2回の出撃で1段上がるくらい）
+export const garCost = lv => Math.round(15 * Math.pow(1.5, Math.min(lv, 10)) * Math.pow(1.08, Math.max(0, lv - 10)));
+export const GAR_MAX = 30;
 
 // 敵: 0 ドローン / 1 砲手 / 2 ブルート / 3 ボス（弾幕）/ 4 突撃車 / 5 自爆車 / 6 迫撃車 / 7 ボス（突進）/ 8 ボス（要塞）
 const ET = [
@@ -145,7 +146,7 @@ function recalc() {
   S.shots = tu.n + u.split; S.spread = tu.sp; S.pierce = u.pierce + tu.pierce; S.bounce = u.bounce; S.rear = u.rear; S.bc = tu.c;
   S.exR = bm ? 2.0 + 0.6 * bm : 0;
   S.maxhp = Math.round((100 + 15 * save.up.hp) * hm[1]) + 25 * u.armor;
-  S.speed = 9.9 * (1 + 0.04 * save.up.spd) * (1 + 0.12 * u.engine) * hm[0];
+  S.speed = 9.9 * (1 + 0.04 * Math.min(10, save.up.spd) + 0.01 * Math.max(0, save.up.spd - 10)) * (1 + 0.12 * u.engine) * hm[0];
   S.gear = pt.gear;
   S.mag = 4 * (1 + 0.6 * u.magnet) * (pt.gear === 'arm' ? 1.8 : 1); S.regen = 1.2 * u.regen + (pt.gear === 'repair' ? 1.5 : 0); S.mine = u.mine + (S.gear === 'mines' ? 1 : 0);
   S.crit = 0.12 * u.crit; S.frost = u.frost; S.orbit = u.orbit; S.salvo = u.salvo; S.plate = 1 - 0.1 * u.plate;

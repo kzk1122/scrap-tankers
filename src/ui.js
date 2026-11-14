@@ -123,7 +123,7 @@ function drawGarage() {
     const lv = save.up[g.k], c = garCost(lv), max = lv >= GAR_MAX, can = !max && save.scrap >= c;
     if (!max && !can && (!goal || c < goal.c)) goal = { c, ja: g.ja + ' Lv ' + (lv + 1), en: g.en + ' Lv ' + (lv + 1) };
     const b = document.createElement('button'); b.className = 'gbtn' + (can ? ' can' : ''); b.id = 'gar_' + g.k; b.disabled = !can;
-    b.innerHTML = `<b>${jaEn(g.ja, g.en)} <i>Lv ${lv}</i></b><small>${g.d}</small><span class="cost">${max ? 'MAX' : NUT + c}</span>`;
+    b.innerHTML = `<b>${jaEn(g.ja, g.en)} <i>Lv ${lv}</i></b><small>${lv >= 10 && g.d2 ? g.d2 : g.d}</small><span class="cost">${max ? 'MAX' : NUT + c}</span>`;
     b.addEventListener('click', () => { if (resH && resH.buy(g.k)) { ev('buy', { k: g.k, lv: save.up[g.k] }); drawAll(); } });
     box.appendChild(b);
   });
