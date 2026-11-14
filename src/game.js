@@ -242,26 +242,27 @@ function shoot() {
   for (let k = 0; k < S.rear; k++) { const a = P.ty + Math.PI + (k - (S.rear - 1) / 2) * 0.2; bullet(P.x + Math.sin(a) * 1.2, P.z + Math.cos(a) * 1.2, a, false, S.dmg, S.bspd, S.blife); }
   P.recoil = 1; sfx.shot(); fxMuzzle(P.x + Math.sin(P.ty) * 2.3, P.z + Math.cos(P.ty) * 2.3, P.ty);
 }
-// ---- 必殺技: 敵を倒すとゲージがたまり、満タンで大砲撃 ----
+// ---- 必殺技: 敵を倒すとゲージがたまり、満タンで大砲撃（時間ではたまらない） ----
+// 1体につき 経験値×3.5%（小型1、砲手2、自爆車と迫撃車3、大型5）。ボスは体力を全部削って80%
 function charge(v) { if (G.state === 'play') G.sp = Math.min(1, G.sp + v / Math.min(3.5, 1 + 0.35 * G.spN)); } // 使うたびに少したまりにくくなる
 function special() {
   if (G.sp < 1 || G.state !== 'play') return;
   G.sp = 0; G.spN++; ev('sp', { s: Math.round(G.t), n: G.spN }); if (!save.sp1) { save.sp1 = 1; persist(); }
   const a = P.ty, auto = I.touch || I.auto, far = auto ? (tgt && !tgt.dead ? Math.min(22, Math.hypot(tgt.x - P.x, tgt.z - P.z)) : 11) : clamp(Math.hypot(I.ax - P.x, I.az - P.z), 5, 22);
   const x = P.x + Math.sin(a) * far, z = P.z + Math.cos(a) * far, mx = P.x + Math.sin(a) * 2.6, mz = P.z + Math.cos(a) * 2.6;
-  P.recoil = 2.2; G.inv = Math.max(G.inv, 0.9); addShake(0.5); sfx.special(); flash(mx, mz, 9, 0x8fe3ff);
-  fxMuzzle(mx, mz, a); burst(mx, 1.4, mz, 18, 0x8fe3ff, 12, 0.4, 0.5); ring(P.x, P.z, 5, 0x8fe3ff); ring(x, z, 8, 0x8fe3ff);
-  for (const b of B) if (b.foe && (b.x - P.x) ** 2 + (b.z - P.z) ** 2 < 400) b.dead = true; // 近くの敵弾を消す
-  SQ.push({ x, z, t: 0.2, R: 8, d: S.dmg * 16 });
-  for (let j = 0; j < 6; j++) { const q = j / 6 * 6.283 + rr(-0.3, 0.3), r = rr(4.5, 7.5); SQ.push({ x: x + Math.sin(q) * r, z: z + Math.cos(q) * r, t: 0.42 + j * 0.09, R: 5, d: S.dmg * 5 }); }
+  P.recoil = 2.2; G.inv = Math.max(G.inv, 0.5); addShake(0.5); sfx.special(); flash(mx, mz, 9, 0x8fe3ff);
+  fxMuzzle(mx, mz, a); burst(mx, 1.4, mz, 18, 0x8fe3ff, 12, 0.4, 0.5); ring(P.x, P.z, 5, 0x8fe3ff); ring(x, z, 6.5, 0x8fe3ff);
+  for (const b of B) if (b.foe && (b.x - P.x) ** 2 + (b.z - P.z) ** 2 < 144) b.dead = true; // 近くの敵弾を消す
+  SQ.push({ x, z, t: 0.2, R: 6.5, d: S.dmg * 9 });
+  for (let j = 0; j < 4; j++) { const q = j / 4 * 6.283 + rr(-0.4, 0.4), r = rr(3.5, 6); SQ.push({ x: x + Math.sin(q) * r, z: z + Math.cos(q) * r, t: 0.42 + j * 0.09, R: 4, d: S.dmg * 3 }); }
 }
 function hurtE(e, d, kx, kz) {
-  if (e.dead) return; if (ET[e.k].boss) charge(Math.min(d, e.hp) / e.max * 1.2); e.hp -= d; e.hitT = 0.1;
+  if (e.dead) return; if (ET[e.k].boss) charge(Math.min(d, e.hp) / e.max * 0.8); e.hp -= d; e.hitT = 0.1;
   const m = ET[e.k].boss ? 0 : e.k === 2 ? 0.35 : 1; e.kx += kx * m; e.kz += kz * m;
   if (e.hp <= 0) kill(e);
 }
 function kill(e) {
-  e.dead = true; const d = ET[e.k]; G.kills++; if (!d.boss) charge(d.xp * 0.04); once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
+  e.dead = true; const d = ET[e.k]; G.kills++; if (!d.boss) charge(d.xp * 0.035); once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
   const bs = !!d.boss, big = bs || e.k === 2, sm = e.k === 0 || e.k === 4;
   burst(e.x, 0.8, e.z, sm ? 8 : bs ? 60 : 16, d.col, big ? 11 : 8, big ? 0.5 : 0.34, 0.6);
   burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7); fxExplode(e.x, e.z, sm ? 1.5 : bs ? 6 : e.k === 2 || e.k === 5 ? 3 : 1.9);
@@ -470,7 +471,7 @@ export function update(dt) {
     const m = M[i]; m.t += dt; if (m.t < 0.4) continue;
     for (const e of E) { if (e.dead) continue; if ((e.x - m.x) ** 2 + (e.z - m.z) ** 2 < (e.r + 0.9) ** 2) { M.splice(i, 1); explode(m.x, m.z, 3.2 + 0.4 * S.mine, 35 * (S.dmg / 10)); break; } }
   }
-  if (live) { charge(dt * 0.01); if (I.sp) special(); } I.sp = false;
+  if (live && I.sp) special(); I.sp = false;
   for (let i = SQ.length - 1; i >= 0; i--) { const q = SQ[i]; q.t -= dt; if (q.t <= 0) { SQ.splice(i, 1); explode(q.x, q.z, q.R, q.d); flash(q.x, q.z, q.R, 0xffd08a); burst(q.x, 1, q.z, q.R > 6 ? 40 : 12, 0xffb21e, 13, 0.5, 0.8); if (q.R > 6) addShake(0.8); } }
   for (let i = boomQ.length - 1; i >= 0; i--) { const q = boomQ[i]; q.t -= dt; if (q.t <= 0) { boomQ.splice(i, 1); explode(q.x, q.z, 5, 70); } }
   for (let i = H.length - 1; i >= 0; i--) { // 着弾
