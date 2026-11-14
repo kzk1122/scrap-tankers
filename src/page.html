@@ -42,6 +42,13 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
 #keys span{white-space:nowrap}#keys b{color:var(--ink)}
 #hint.pulse{border-color:var(--gold);animation:hintp 1s ease-in-out infinite alternate}
 @keyframes hintp{to{box-shadow:0 0 16px var(--gold2)}}
+.spw{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:-2px}
+#sp{--p:0%;pointer-events:auto;touch-action:none;width:72px;height:72px;border-radius:50%;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:radial-gradient(circle,#18203c 0 58%,transparent 60%),conic-gradient(#8fe3ff var(--p),rgba(20,28,54,.85) 0);box-shadow:0 3px 0 rgba(11,18,36,.5);opacity:.75;text-shadow:none}
+#sp b{font-size:15px;letter-spacing:.05em}#sp small{font-size:9px;color:var(--dim);letter-spacing:.08em}
+#sp.ready{opacity:1;background:radial-gradient(circle,#ffb21e 0 58%,transparent 60%),conic-gradient(#fff3c4 100%,#fff3c4 0);color:#231400;animation:sppulse .7s ease-in-out infinite alternate}#sp.ready small{color:#5a3a00}
+@keyframes sppulse{from{transform:scale(1);box-shadow:0 0 0 0 rgba(255,178,30,.7)}to{transform:scale(1.1);box-shadow:0 0 0 12px rgba(255,178,30,0)}}
+#sptip{background:var(--panel);border:2px solid #ffb21e;border-radius:12px;padding:6px 12px;font-size:13px;text-shadow:none}
+@media (prefers-reduced-motion:reduce){#sp.ready{animation:none}}
 .xpw{display:flex;align-items:center;gap:8px}
 .xpw .bar{flex:1;height:12px}
 .lv{font-size:14px;min-width:44px}
@@ -125,6 +132,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
     <div id="toast"></div>
     <div class="grow"></div>
     <div id="hint" hidden></div>
+    <div class="spw"><div id="sptip" hidden></div><button id="sp" aria-label="Special"><b id="spl">必殺</b><small id="spk">SPACE</small></button></div>
     <div id="keys" hidden></div>
     <div class="xpw"><div class="lv" id="lv">Lv 1</div><div class="bar xp"><i id="xpb"></i></div></div>
   </div>

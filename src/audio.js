@@ -49,6 +49,7 @@ export const sfx = {
   ui() { if (ok('ui', 0.04)) tone('triangle', 620, 930, 0.07, 0.14); },
   buy() { if (ok('buy', 0.05)) { tone('square', 440, 880, 0.08, 0.1); tone('square', 880, 1320, 0.1, 0.1, 0.07); } },
   wave() { if (ok('wave', 0.3)) { tone('sawtooth', 196, 196, 0.18, 0.14); tone('sawtooth', 294, 294, 0.3, 0.14, 0.16); } },
+  special() { if (ok('special', 0.3)) { tone('sawtooth', 110, 880, 0.18, 0.2); noise(0.5, 0.7, 2400, 90); tone('sine', 160, 30, 0.6, 0.6, 0.12); } },
   win() { if (ok('win', 0.5)) [523, 659, 784, 1047, 1319].forEach((f, i) => tone('triangle', f, f, 0.3, 0.22, i * 0.11)); },
   lose() { if (ok('lose', 0.5)) [392, 330, 262, 196].forEach((f, i) => tone('sawtooth', f, f * 0.97, 0.28, 0.16, i * 0.16)); },
 };
