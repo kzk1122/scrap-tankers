@@ -101,6 +101,7 @@ function drawMap(d) {
   for (let a = 0; a < AREAS; a++) h += `<s class="${a === ar ? 'now' : ''}"><b style="width:${Math.max(0, Math.min(6, got - a * 6)) / 6 * 100}%"></b></s>`;
   const left = base + 6 - got;
   h += `<span>${got >= tot ? jaEn('全拠点を奪還！', 'All bases reclaimed!') : left <= 0 ? jaEn(`エリア ${ar + 1} を制圧！ 次はエリア ${ar + 2}`, `Area ${ar + 1} secured! Next: Area ${ar + 2}`) : jaEn(`あと ${left} 拠点でエリア ${ar + 1} を制圧`, `${left} more to secure Area ${ar + 1}`)}</span></div>`;
+  if (d.unlocked && d.unlocked.length) h += `<div class="unl">${jaEn('新しいパーツが開放された: ', 'New parts unlocked: ')}<b>${d.unlocked.map(MT.pname).join(jaEn('、', ', '))}</b></div>`;
   $('map').innerHTML = h;
   const n = Math.max(0, Math.min(6, got - base)), w = n <= 1 ? 0 : (n - 1) / 5 * 84, f = $('mfill');
   f.style.width = (d.win && n > 1 ? (n - 2) / 5 * 84 : w) + '%'; requestAnimationFrame(() => requestAnimationFrame(() => { f.style.width = w + '%'; }));
@@ -133,10 +134,10 @@ function drawParts() {
     const lab = document.createElement('div'); lab.className = 'plab'; lab.textContent = jaEn(ja, en); box.appendChild(lab);
     const row = document.createElement('div'); row.className = 'prow';
     for (const p of MT.PARTS.filter(q => q.slot === slot)) {
-      const own = MT.owned(p.id), on = save.parts[slot] === p.id, lock = p.cost < 0, can = !own && !lock && save.scrap >= p.cost;
+      const own = MT.owned(p.id), on = save.parts[slot] === p.id, need = !own && MT.locked(p.id), lock = p.cost < 0 || need, can = !own && !lock && save.scrap >= p.cost;
       if (!own && !can && !lock && (!goal || p.cost < goal.c)) goal = { c: p.cost, ja: p.ja[0], en: p.en[0] };
-      const b = document.createElement('button'); b.className = 'gbtn' + (on ? ' on' : own ? ' own' : can ? ' can' : ''); b.id = 'part_' + p.id; b.disabled = !own && !can;
-      b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : lock ? jaEn('報酬', 'Reward') : NUT + p.cost}</span>`;
+      const b = document.createElement('button'); b.className = 'gbtn' + (on ? ' on' : own ? ' own' : can ? ' can' : need ? ' lk' : ''); b.id = 'part_' + p.id; b.disabled = !own && !can;
+      b.innerHTML = `<b>${p.col !== undefined ? `<i class="sw" style="background:#${p.col.toString(16).padStart(6, '0')}"></i>` : ''}${MT.pname(p.id)}</b><small>${MT.pdesc(p.id)}</small><span class="cost">${on ? jaEn('装備中', 'Equipped') : own ? jaEn('装備する', 'Equip') : need ? jaEn(`拠点 ${p.need - 1} 奪還で開放`, `Reclaim base ${p.need - 1}`) : lock ? jaEn('報酬', 'Reward') : NUT + p.cost}</span>`;
       b.addEventListener('click', () => { if (own ? MT.equip(p.id) : MT.buyPart(p.id)) { ev(own ? 'equip' : 'part', { k: p.id }); sfx.buy(); drawAll(); } });
       row.appendChild(b);
     }

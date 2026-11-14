@@ -8,8 +8,8 @@ await p.goto('file://' + process.cwd() + '/dist/index.html'); await p.waitForTim
 for (const mode of MODES) {
   const rows = [];
   for (let r = 0; r < RUNS; r++) {
-    const res = await p.evaluate(({ mode, r, up, stage }) => {
-      const T = window.__tk; T.manual(true); T.seed(1000 + r * 77); T.save.up = { dmg: up, hp: up, spd: up }; T.save.stage = stage; T.restart();
+    const res = await p.evaluate(({ mode, r, up, stage, parts }) => {
+      const T = window.__tk; T.manual(true); T.seed(1000 + r * 77); T.save.up = { dmg: up, hp: up, spd: up }; T.save.stage = stage; if (parts) { const q = parts.split('/'); T.save.parts = { hull: q[0], turret: q[1], gear: q[2], paint: 'orange' }; } T.restart();
       let s, ang = 0, first = -1, lvT = [], hold = 0, mx = 0, mz = 0;
       for (let f = 0; f < 60 * 480; f++) {
         if (f % 6 === 0) {
@@ -31,7 +31,7 @@ for (const mode of MODES) {
         if (s === 'result') break;
       }
       const st = T.state(); return { t: st.t | 0, wave: st.wave + 1, lvl: st.lvl, kills: st.kills, scrap: st.scrap, won: st.won, first: +first.toFixed(1), hp: st.hp | 0 };
-    }, { mode, r, up: +(process.env.UP || 0), stage: +(process.env.STAGE || 1) });
+    }, { mode, r, up: +(process.env.UP || 0), stage: +(process.env.STAGE || 1), parts: process.env.PARTS || '' });
     rows.push(res); console.log(mode, JSON.stringify(res));
   }
   const med = k => rows.map(x => x[k]).sort((a, b) => a - b)[rows.length >> 1];

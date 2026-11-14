@@ -6,14 +6,20 @@ export const PARTS = [
   { id: 'std', slot: 'hull', cost: 0, ja: ['標準車体', 'バランス型'], en: ['Standard', 'Balanced'] },
   { id: 'light', slot: 'hull', cost: 60, ja: ['軽量車体', '速度 +18%　HP -20%'], en: ['Scout', 'Speed +18%, HP -20%'] },
   { id: 'bulk', slot: 'hull', cost: 150, ja: ['重装車体', 'HP +45%　速度 -12%'], en: ['Fortress', 'HP +45%, speed -12%'] },
+  { id: 'assault', slot: 'hull', cost: 320, need: 7, ja: ['強襲車体', 'HP +25%　速度 +10%'], en: ['Assault', 'HP +25%, speed +10%'] },
   { id: 'cannon', slot: 'turret', cost: 0, ja: ['主砲', '標準の1発'], en: ['Cannon', 'Single shell'] },
   { id: 'twin', slot: 'turret', cost: 80, ja: ['連装砲', '2発同時に撃つ'], en: ['Twin Gun', 'Two shells at once'] },
   { id: 'scatter', slot: 'turret', cost: 160, ja: ['散弾砲', '5発ばらまく　短射程'], en: ['Scatter Gun', '5 pellets, short range'] },
   { id: 'laser', slot: 'turret', cost: 260, ja: ['レーザー砲', '高速で3体つらぬく'], en: ['Laser', 'Fast, pierces 3 enemies'] },
+  { id: 'blast', slot: 'turret', cost: 220, need: 4, ja: ['炸裂砲', '着弾で爆発する'], en: ['Blast Cannon', 'Shells explode on hit'] },
+  { id: 'rail', slot: 'turret', cost: 380, need: 7, ja: ['長距離砲', '射程 +50%　威力 +60%　1体貫通'], en: ['Long Gun', 'Range +50%, damage +60%, pierces 1'] },
   { id: 'none', slot: 'gear', cost: 0, ja: ['装備なし', '—'], en: ['None', '—'] },
   { id: 'mines', slot: 'gear', cost: 70, ja: ['地雷散布', '最初から地雷をまく'], en: ['Minelayer', 'Drops mines from the start'] },
   { id: 'shield', slot: 'gear', cost: 140, ja: ['シールド', '8秒ごとに1回防ぐ'], en: ['Shield', 'Blocks a hit every 8 s'] },
   { id: 'drone', slot: 'gear', cost: 240, ja: ['僚機ドローン', '近くの敵を自動で撃つ'], en: ['Wing Drone', 'Auto-fires at nearby enemies'] },
+  { id: 'arm', slot: 'gear', cost: 120, need: 3, ja: ['回収アーム', '歯車を吸う範囲 +80%'], en: ['Grabber Arm', 'Pickup range +80%'] },
+  { id: 'loader', slot: 'gear', cost: 260, need: 5, ja: ['自動装填機', '発射速度 +20%'], en: ['Autoloader', 'Fire rate +20%'] },
+  { id: 'repair', slot: 'gear', cost: 300, need: 9, ja: ['修理キット', '毎秒 HP +1.5'], en: ['Repair Kit', 'Regen 1.5 HP/s'] },
   { id: 'orange', slot: 'paint', cost: 0, col: 0xd9780f, ja: ['オレンジ', '標準の塗装'], en: ['Orange', 'Factory paint'] },
   { id: 'olive', slot: 'paint', cost: 40, col: 0x6b7a35, ja: ['オリーブ', '定番の軍用色'], en: ['Olive', 'Classic army green'] },
   { id: 'sand', slot: 'paint', cost: 40, col: 0xc9a66b, ja: ['サンド', '砂漠仕様'], en: ['Sand', 'Desert finish'] },
@@ -27,10 +33,13 @@ export const paintCol = () => (part(save.parts.paint) || part('orange')).col;
 export const part = id => PARTS.find(p => p.id === id);
 export const pname = id => { const p = part(id); return p ? jaEn(p.ja[0], p.en[0]) : ''; };
 export const pdesc = id => { const p = part(id); return p ? jaEn(p.ja[1], p.en[1]) : ''; };
+// 上位パーツは拠点を進めると開放される（need = その拠点に到達していること）
+export const locked = id => { const p = part(id); return !!(p && p.need && save.best < p.need); };
+export const unlockedAt = best => PARTS.filter(p => p.need === best).map(p => p.id);
 export const owned = id => { const p = part(id); return !!p && (p.cost === 0 || !!save.own[id]); };
 export function equip(id) { const p = part(id); if (!p || !owned(id)) return false; save.parts[p.slot] = id; persist(); return true; }
 export function buyPart(id) {
-  const p = part(id); if (!p || owned(id) || p.cost < 0 || save.scrap < p.cost) return false;
+  const p = part(id); if (!p || owned(id) || p.cost < 0 || locked(id) || save.scrap < p.cost) return false;
   save.scrap -= p.cost; save.own[id] = 1; save.parts[p.slot] = id; persist(); return true;
 }
 
