@@ -368,6 +368,11 @@ function initFx() {
     m.frustumCulled = false; scene.add(m); marks = { g, pos, born, i: 0, N }; }
   const rg = new THREE.RingGeometry(0.82, 1, 40).rotateX(-Math.PI / 2);
   for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.visible = false; m.position.y = 0.15; m.renderOrder = 2; scene.add(m); rings.push({ m, t: 1, R: 1 }); }
+  // 着弾予告の円と、突進・狙撃の予告線
+  const wm = o => new THREE.MeshBasicMaterial({ color: 0xff3348, transparent: true, opacity: o, depthWrite: false });
+  const wr = new THREE.RingGeometry(0.9, 1, 40).rotateX(-Math.PI / 2), wf = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2), wl = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5);
+  for (let i = 0; i < 12; i++) { const o = new THREE.Mesh(wr, wm(0.9)), f = new THREE.Mesh(wf, wm(0.3)); o.position.y = 0.12; f.position.y = 0.1; o.visible = f.visible = false; o.renderOrder = f.renderOrder = 2; scene.add(o, f); warnC.push({ o, f }); }
+  for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(wl, wm(0.3)); m.position.y = 0.11; m.visible = false; m.renderOrder = 2; scene.add(m); warnL.push(m); }
 }
 // 破片（光の当たる小さな箱）。呼び方は以前の粒子と同じ
 export function burst(x, y, z, n, hex, spd, size, life, up = 1) {
@@ -427,6 +432,11 @@ export function addMark(x, z, ry, len, w = 0.78) {
 // ---- 衝撃波の輪 ----
 const rings = []; let ringI = 0;
 export function ring(x, z, Rr, hex = 0xffe9a8) { const r = rings[ringI++ % rings.length]; r.t = 0; r.R = Rr; r.m.position.x = x; r.m.position.z = z; r.m.material.color.set(hex); r.m.visible = true; }
+const warnC = [], warnL = [];
+export function setWarn(H, L) {
+  for (let i = 0; i < warnC.length; i++) { const w = warnC[i], h = H[i]; w.o.visible = w.f.visible = !!h; if (!h) continue; const p = Math.min(1, h.t / h.T), s = Math.max(0.05, h.r * p); w.o.position.x = w.f.position.x = h.x; w.o.position.z = w.f.position.z = h.z; w.o.scale.set(h.r, 1, h.r); w.f.scale.set(s, 1, s); w.f.material.opacity = 0.2 + 0.3 * p; }
+  for (let i = 0; i < warnL.length; i++) { const m = warnL[i], l = L[i]; m.visible = !!l; if (!l) continue; m.position.x = l.x; m.position.z = l.z; m.rotation.y = l.a; m.scale.set(l.w, 1, l.len); m.material.opacity = 0.14 + 0.36 * Math.min(1, Math.max(0, l.p)); }
+}
 export function updRings(dt) {
   for (const r of rings) { if (!r.m.visible) continue; r.t += dt * 3.2; if (r.t >= 1) { r.m.visible = false; continue; } const s = r.R * (0.25 + 0.75 * Math.sqrt(r.t)); r.m.scale.set(s, 1, s); r.m.material.opacity = 0.7 * (1 - r.t); }
 }
