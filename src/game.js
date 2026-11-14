@@ -359,7 +359,7 @@ export function update(dt) {
   // ---- 自機 ----
   if (live) {
     const wet = W.inWater(P.x, P.z), spd = S.speed * (wet ? 0.62 : 1);
-    const k = 1 - Math.exp(-14 * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
+    const k = 1 - Math.exp(-(I.touch || I.mx || I.mz ? 14 : 30) * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
     if (I.mx || I.mz) { G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.07; const bx = P.x - Math.sin(P.ry) * 1.1, bz = P.z - Math.cos(P.ry) * 1.1; if (wet) { fxSplash(bx, bz, 2); if (rnd() < 0.2) ring(P.x, P.z, 2.2, 0x9fd8ff); } else fxDust(bx, bz, TH.dust, 1); } }
     const ax0 = P.vx0 || 0, az0 = P.vz0 || 0, acx = (P.vx - ax0) / dt, acz = (P.vz - az0) / dt, fw = acx * Math.sin(P.ry) + acz * Math.cos(P.ry), sd = acx * Math.cos(P.ry) - acz * Math.sin(P.ry), kt = 1 - Math.exp(-8 * dt);
     P.pitch += (clamp(-fw * 0.006, -0.09, 0.09) - P.pitch) * kt; P.roll += (clamp(sd * 0.006, -0.08, 0.08) - P.roll) * kt; P.vx0 = P.vx; P.vz0 = P.vz;

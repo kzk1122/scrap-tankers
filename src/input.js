@@ -2,6 +2,7 @@
 import { THREE } from './core.js';
 export const I = { mx: 0, mz: 0, fire: false, ax: 0, az: -1, touch: false, moved: false, fired: false, ext: null, dest: null, auto: false, click: false, sp: false, px: 0, pz: 0 };
 const keys = new Set(); const ndc = new THREE.Vector2(0, 0.3);
+export const STOP_R = 2.4; // この半径の内側にカーソルがあると止まる
 let follow = false, kbd = false; // PC: マウスに戦車がついてくる（既定）。移動キーを押したらキーボード操作、クリックで戻る
 let joyId = null, jx = 0, jy = 0, ox = 0, oy = 0, mouseDown = false, joyEl = null, first = null;
 const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1), hitP = new THREE.Vector3();
@@ -56,8 +57,10 @@ export function pollInput(camera) {
   if (!I.touch) { ray.setFromCamera(ndc, camera); if (ray.ray.intersectPlane(plane, hitP)) { I.ax = hitP.x; I.az = hitP.z; } }
   if (l > 0) { kbd = true; follow = false; I.auto = false; }
   else if (!I.touch && follow) {
-    I.auto = true; const dx = I.ax - I.px, dz = I.az - I.pz, d = Math.hypot(dx, dz), k = Math.min(1, (d - 1.3) / 2.2); // 近いほどゆっくり、重なったら止まる
-    if (k > 0.05) { x = dx / d * k; z = dz / d * k; }
+    I.auto = true;
+    // カメラの中心（戦車が落ち着く場所）からカーソルまでを見る。戦車やカメラが動いても向きと強さが変わらないので、滑らずに狙った所で止まれる
+    const dx = I.ax - camera.position.x, dz = I.az - (camera.position.z - camera.position.y * 0.52), d = Math.hypot(dx, dz) || 1, k = Math.min(1, (d - STOP_R) / 1.4); // スマホのスティックと同じ考え方: 戦車のまわりの円の中にカーソルを置くと止まり、外に出すとその方向へすぐ全速
+    if (k > 0) { const m = 0.45 + 0.55 * k; x = dx / d * m; z = dz / d * m; }
   }
   I.mx = x; I.mz = z; if (Math.hypot(x, z) > 0.3) I.moved = true;
   I.fire = mouseDown;
