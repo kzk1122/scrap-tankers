@@ -1,9 +1,9 @@
 // 効果音はすべて WebAudio で合成。種類ごとに鳴らす間隔を制限して同時発音を抑える
 import { save, persist } from './core.js';
-let ac = null, master = null, nbuf = null, mg = null;
+let ac = null, master = null, nbuf = null, mg = null, held = false; // held: 一時停止中やタブを離れている間は鳴らさない
 const last = {};
 export function audioInit() {
-  if (ac) { if (ac.state !== 'running') ac.resume().catch(() => {}); return; }
+  if (ac) { if (ac.state !== 'running' && !held) ac.resume().catch(() => {}); return; }
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
     master = ac.createGain(); master.gain.value = save.mute || forced ? 0 : 0.5;
@@ -84,7 +84,7 @@ let mWant = 'off', mMode = 'off', mStep = 0, mNext = 0, mVol = 1, brass = null;
 export function music(mode) { mWant = mode; }
 export function musicVol(v) { if (v === mVol) return; mVol = v; if (mg) mg.gain.setTargetAtTime(0.34 * v, ac.currentTime, 0.25); }
 export function musicState() { return { track: MARCHES.indexOf(MARCH), want: mWant, mode: mMode, step: mStep, running: !!ac && ac.state === 'running' }; }
-export function audioPause(p) { if (!ac) return; if (p) ac.suspend().catch(() => {}); else ac.resume().catch(() => {}); }
+export function audioPause(p) { held = !!p; if (!ac) return; if (p) ac.suspend().catch(() => {}); else ac.resume().catch(() => {}); }
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
 function mNote(type, midi, t, dur, vol, dest) {
   const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = hz(midi);

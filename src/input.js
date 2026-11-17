@@ -17,11 +17,14 @@ function tryLock() {
   try { const r = c.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { /* noop */ }
 }
 export function setLock(w) { if (w === want) return; want = w; if (w) tryLock(); else if (locked) document.exitPointerLock(); }
-export function initInput(onFirst) {
+export function relock() { lockOff = false; want = false; setLock(true); } // 一時停止からの再開（クリックやキーの中で呼ぶ）
+let onUnlock = null;
+export function initInput(onFirst, unlocked) {
+  onUnlock = unlocked;
   document.addEventListener('pointerlockchange', () => {
     const was = locked; locked = document.pointerLockElement === cv(); I.lock = locked;
     if (locked) { kx = ky = 0; joyEl.classList.add('pc'); joyEl.hidden = false; }
-    else { if (was && want) lockOff = true; joyEl.classList.remove('pc'); if (joyId === null) joyEl.hidden = true; } // Esc で外したら、画面をクリックするまで戻さない
+    else { if (was && want) { lockOff = true; if (onUnlock) onUnlock(); } joyEl.classList.remove('pc'); if (joyId === null) joyEl.hidden = true; } // Esc で外したら、画面をクリックするまで戻さない
   });
   first = onFirst; joyEl = document.getElementById('joy');
   document.getElementById('sp').addEventListener('pointerdown', e => { e.preventDefault(); I.sp = true; });

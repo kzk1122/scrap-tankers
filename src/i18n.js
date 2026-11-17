@@ -27,6 +27,11 @@ export const T = {
   'Auto': ['Auto', 'Auto', 'Авто', 'Auto', 'Auto'],
   'Special': ['Especial', 'Especial', 'Суперудар', 'Spezial', 'Spécial'],
   'Sound': ['Sonido', 'Som', 'Звук', 'Ton', 'Son'],
+  'Pause': ['Pausa', 'Pausar', 'Пауза', 'Pause', 'Pause'],
+  'PAUSED': ['PAUSA', 'PAUSADO', 'ПАУЗА', 'PAUSE', 'PAUSE'],
+  'Resume': ['Continuar', 'Continuar', 'Продолжить', 'Weiter', 'Reprendre'],
+  'Tap to resume': ['Toca para continuar', 'Toque para continuar', 'Коснитесь, чтобы продолжить', 'Tippen zum Fortsetzen', 'Touche pour reprendre'],
+  'Click or press Enter to resume': ['Haz clic o pulsa Enter para continuar', 'Clique ou aperte Enter para continuar', 'Щёлкните или нажмите Enter, чтобы продолжить', 'Klicken oder Enter drücken zum Fortsetzen', 'Clique ou appuie sur Entrée pour reprendre'],
   'Choose one upgrade': ['Elige una mejora', 'Escolha uma melhoria', 'Выберите улучшение', 'Wähle ein Upgrade', 'Choisis une amélioration'],
   // ---- 結果画面 ----
   'Base reclaimed!': ['¡Base recuperada!', 'Base retomada!', 'База отбита!', 'Basis zurückerobert!', 'Base reprise !'],
