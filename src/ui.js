@@ -2,6 +2,7 @@
 import { jaEn, save, persist, TARGET } from './core.js';
 import { themeOf } from './themes.js';
 import { sfx, toggleMute, audioInit } from './audio.js';
+import { setView } from './gfx.js';
 import { GAR, garCost, GAR_MAX, NWAVE } from './game.js';
 import * as MT from './meta.js';
 import { ev } from './metrics.js';
@@ -17,13 +18,21 @@ const armed = () => performance.now() - openAt > 380; // 連打で誤って選�
 export function initUi() {
   $('mute').addEventListener('click', () => { audioInit(); $('mute').classList.toggle('off', toggleMute()); });
   $('mute').classList.toggle('off', save.mute);
+  $('view').addEventListener('click', e => { e.stopPropagation(); toggleView(); });
+  $('view').classList.toggle('on', !!save.view);
   $('pzmute').addEventListener('click', e => { e.stopPropagation(); $('mute').click(); pzMute(); }); // 押しても再開しない
   window.addEventListener('keydown', e => {
     if (!$('lvl').hidden && armed() && e.key >= '1' && e.key <= '3') { if (pickCb) pickCb(+e.key - 1); }
     else if (!$('res').hidden && armed() && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (resH) resH.go(); }
     else if (!$('wel').hidden && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (welH) welH(); }
     else if (e.key === 'm' || e.key === 'M') $('mute').click();
+    else if ((e.key === 'v' || e.key === 'V') && !e.repeat) toggleView();
   });
+}
+// 視点の切り替え（見下ろし ⇔ 戦車の後ろから）。選んだ視点は保存して次も使う
+export function toggleView() {
+  save.view = save.view ? 0 : 1; persist(); setView(save.view); $('view').classList.toggle('on', !!save.view);
+  toast(save.view ? jaEn('視点: 戦車の後ろから', 'View: behind the tank') : jaEn('視点: 見下ろし', 'View: top-down')); ev('view', { v: save.view });
 }
 export function hud(d) {
   const r = d.hp / d.maxhp, lvl = r < 0.2 ? 'crit' : r < 0.5 ? 'warn' : ''; if (cache.hpc !== lvl) { cache.hpc = lvl; $('hpbar').className = 'bar hp ' + lvl; }
@@ -48,7 +57,7 @@ export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden =
 // PC では操作方法を常に左下へ出す（スマホでは出さない）
 export function legend(show, lock) {
   touchUi = !show; const k = $('keys'), key = show + '|' + !!lock; if (cache.keys === key) return; cache.keys = key; k.hidden = !show;
-  if (show) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], lock ? [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('動かした方向へ進む', 'Steer')] : [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>Esc</kbd>', jaEn('一時停止', 'Pause')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  if (show) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], lock ? [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('動かした方向へ進む', 'Steer')] : [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>Esc</kbd>', jaEn('一時停止', 'Pause')], ['<kbd>V</kbd>', jaEn('視点', 'View')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; $('wel').hidden = true; pickCb = null; resH = null; }
 // 一時停止の画面。画面のどこをクリック（タップ）しても再開する

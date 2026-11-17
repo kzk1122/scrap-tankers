@@ -64,7 +64,10 @@ export function initInput(onFirst, unlocked) {
 }
 function setNdc(e) { ndc.x = e.clientX / innerWidth * 2 - 1; ndc.y = -(e.clientY / innerHeight) * 2 + 1; }
 
-export function pollInput(camera) {
+// yaw: 後ろからの視点のときのカメラの向き（見下ろしでは null）。スティックとキーは画面の上を「カメラの前」として読む。
+// 向きの基準は入力が途切れたときだけ取り直す（押している間にカメラが回っても進む向きが回り続けない）
+let ref = null;
+export function pollInput(camera, yaw = null) {
   if (I.ext) { I.mx = I.ext.mx || 0; I.mz = I.ext.mz || 0; I.fire = !!I.ext.fire; I.touch = !!I.ext.auto; if (I.mx || I.mz) I.moved = true; if (I.ext.ax !== undefined) { I.ax = I.ext.ax; I.az = I.ext.az; } if (I.ext.sp) I.sp = true; return; }
   let x = 0, z = 0;
   if (keys.has('a') || keys.has('ArrowLeft')) x -= 1;
@@ -82,9 +85,12 @@ export function pollInput(camera) {
   else if (!I.touch && follow) {
     I.auto = true;
     // カメラの中心（戦車が落ち着く場所）からカーソルまでを見る。戦車やカメラが動いても向きと強さが変わらないので、滑らずに狙った所で止まれる
-    const dx = I.ax - camera.position.x, dz = I.az - (camera.position.z - camera.position.y * 0.52), d = Math.hypot(dx, dz) || 1, k = Math.min(1, (d - STOP_R) / 2.2); // スマホのスティックと同じ考え方: 戦車のまわりの円の中にカーソルを置くと止まり、外に出すとその方向へすぐ全速
+    const dx = I.ax - (yaw === null ? camera.position.x : I.px), dz = I.az - (yaw === null ? camera.position.z - camera.position.y * 0.52 : I.pz), d = Math.hypot(dx, dz) || 1, k = Math.min(1, (d - STOP_R) / 2.2); // スマホのスティックと同じ考え方: 戦車のまわりの円の中にカーソルを置くと止まり、外に出すとその方向へすぐ全速
     if (k > 0) { const m = 0.35 + 0.65 * k; x = dx / d * m; z = dz / d * m; }
+    I.mx = x; I.mz = z; if (Math.hypot(x, z) > 0.3) I.moved = true; I.fire = mouseDown; if (I.fire) I.fired = true; return; // カーソルの地面の位置へ向かうので、向きの読み替えはいらない
   }
+  if (yaw === null || !(x || z)) ref = yaw;
+  if (ref !== null && (x || z)) { const c = Math.cos(ref), s = Math.sin(ref), wx = -x * c - z * s, wz = x * s - z * c; x = wx; z = wz; }
   I.mx = x; I.mz = z; if (Math.hypot(x, z) > 0.3) I.moved = true;
   I.fire = mouseDown;
   if (I.fire) I.fired = true;
