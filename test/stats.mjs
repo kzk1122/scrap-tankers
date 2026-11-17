@@ -6,7 +6,7 @@ const DB = { prepare(sql) { const st = db.prepare(sql); let args = []; const o =
 const post = b => onRequestPost({ request: new Request('http://x/api/ev', { method: 'POST', body: JSON.stringify(b) }), env: { DB } });
 const S = (id, sid, dev, day, evs) => post({ id, sid, tg: 'site', dev, lang: 'ja', day, run: 1, evs });
 await S('u1', 's1', 'd', 0, [{ n: 'load', t: 0.3, ms: 900 }, { n: 'start', t: 1, run: 1, stage: 1 }, { n: 'move', t: 2 }, { n: 'kill', t: 3 }, { n: 'lvl', t: 9 }, { n: 't60', t: 60 }, { n: 'end', t: 150, stage: 1, wave: 6, won: 1, s: 150 }, { n: 'again', t: 155 }, { n: 'part', t: 152, k: 'twin' }]);
-await S('u2', 's2', 'm', 0, [{ n: 'load', t: 0.3, ms: 4200 }, { n: 'start', t: 1 }, { n: 'move', t: 5 }, { n: 'end', t: 40, stage: 1, wave: 1, won: 0, s: 40 }]);
+await S('u2', 's2', 'm', 0, [{ n: 'load', t: 0.3, ms: 4200 }, { n: 'start', t: 1 }, { n: 'move', t: 5 }, { n: 'end', t: 40, stage: 1, wave: 1, won: 0, home: 1, s: 40 }]);
 await S('u1', 's3', 'd', 1, [{ n: 'load', t: 0.3, ms: 700 }, { n: 'welcome', t: 0.4, day: 2 }, { n: 'start', t: 1 }]);
 const bad = await onRequestPost({ request: new Request('http://x/api/ev', { method: 'POST', body: 'not json' }), env: { DB } });
 let fail = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fail++; };
@@ -14,7 +14,8 @@ ok(db.prepare('SELECT COUNT(*) c FROM ev').get().c === 16, 'rows stored'); ok(ba
 const html = await (await onRequestGet({ request: new Request('http://x/stats?days=7'), env: { DB } })).text();
 const txt = html.replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 ok(/1分プレイ 1 50\.0% 0 0\.0%/.test(txt), 'funnel: t60 PC 1/2, mobile 0/1'); ok(/スマホ 4\.20 秒/.test(txt), 'mobile load 4.20 s');
-ok(/PC 1 1 100\.0%/.test(txt), 'D1: PC 1 of 1 returned'); ok(/拠点 1 ボス 1 1 150 秒 (\d+\.\d 回|—)/.test(txt) && /twin パーツ購入 1/.test(txt), 'run ends and purchases listed');
+ok(/PC 1 1 100\.0%/.test(txt), 'D1: PC 1 of 1 returned'); ok(/拠点 1 ボス 1 1 0 150 秒 (\d+\.\d 回|—)/.test(txt) && /twin パーツ購入 1/.test(txt), 'run ends and purchases listed');
+ok(/拠点 1 WAVE 2 1 0 1 40 秒/.test(txt), 'returns to HQ counted where the run ended');
 ok(/おかえり」画面: PC 表示 1・そこから出撃 1 ／ スマホ 表示 0・そこから出撃 0/.test(txt), 'welcome screen shown and deployed counted');
 { // ?from= より前は数えない（未来の日付なら全部 0）、環境変数 STATS_FROM でも同じ
   const t = async (url, env = {}) => (await (await onRequestGet({ request: new Request(url), env: { DB, ...env } })).text()).replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
