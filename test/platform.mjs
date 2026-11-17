@@ -22,6 +22,12 @@ const play = p => p.evaluate(() => { const T = __tk; T.q(4); T.manual(true); T.i
   const sent = posts.flatMap(x => x.evs.map(e => e.n)); ok(sent.includes('end') && posts[0].id && posts[0].sid, 'beacon sent: ' + posts.length + ' posts, ' + sent.length + ' events');
   console.log('   load ms', (await p.evaluate(() => __tk.ev.find(e => e.n === 'load'))).ms, '| end', JSON.stringify(await p.evaluate(() => __tk.ev.find(e => e.n === 'end'))));
   ok(!errs.length, 'site no errors ' + errs.join('|')); await p.close();
+  // ?me=1 を開いた端末は以後送らない（?me=0 で戻る）
+  const n0 = posts.length, p2 = await b.newPage({ viewport: { width: 900, height: 600 } });
+  await p2.goto(root + 'index.html?me=1'); await p2.waitForTimeout(800); await p2.goto(root + 'index.html'); await p2.waitForTimeout(800); await play(p2); await p2.waitForTimeout(600);
+  ok(posts.length === n0 && (await p2.evaluate(() => __tk.ev.length)) > 0, '?me=1: events kept locally, nothing sent');
+  await p2.goto(root + 'index.html?me=0'); await p2.waitForTimeout(800); await play(p2); await p2.waitForTimeout(600);
+  ok(posts.length > n0, '?me=0: sending again'); await p2.close();
 }
 { // 2) cg: 偽 SDK。保存の読み込み、gameplay 通知、消音
   const p = await b.newPage({ viewport: { width: 900, height: 600 } }); const errs = [];
@@ -36,7 +42,9 @@ const play = p => p.evaluate(() => { const T = __tk; T.q(4); T.manual(true); T.i
   await p.goto(root + 'cg/index.html'); await p.waitForTimeout(1500);
   const s = await p.evaluate(() => ({ scrap: __tk.save.scrap, stage: __tk.save.stage, tur: __tk.save.parts.turret, paint: __tk.save.parts.paint, calls: __cg.calls.slice(), muted: __tk.platform.muted(), user: __tk.platform.user }));
   ok(s.scrap === 797 && s.stage === 3 && s.tur === 'twin' && s.paint === 'orange', 'save loaded from SDK data (+20 login reward) ' + JSON.stringify([s.scrap, s.stage, s.tur]));
-  ok(['init', 'loadingStart', 'loadingStop', 'gameplayStart'].every(n => s.calls.includes(n)), 'sdk calls ' + s.calls.join(','));
+  ok(['init', 'loadingStart', 'loadingStop'].every(n => s.calls.includes(n)) && !s.calls.includes('gameplayStart') && (await p.evaluate(() => __tk.state().state)) === 'hold', 'returning save: welcome screen first, gameplay not started yet ' + s.calls.join(','));
+  await p.click('#welgo'); await p.waitForTimeout(200);
+  ok((await p.evaluate(() => __cg.calls.includes('gameplayStart') && __tk.state().state === 'play')), 'deploy from the welcome screen starts gameplay');
   ok(s.muted && s.user && s.user.name === 'Tester', 'muteAudio respected, user read');
   const pc = await p.evaluate(() => { const n = __cg.calls.length; __tk.pause(); __tk.resume(); return __cg.calls.slice(n).join(','); });
   ok(pc === 'gameplayStop,gameplayStart', 'pause/resume tells the SDK: ' + pc);

@@ -154,18 +154,23 @@ function recalc() {
 }
 const need = l => 4 + 3 * (l - 1);
 
-export function startRun() {
+// hold: 「おかえり」画面の裏で戦場だけ用意し、出撃ボタンで begin() するまで止めておく
+export function startRun(hold) {
   W.genWorld(themeOf(save.stage).id, save.stage); setTheme(save.stage); musicTrack(areaOf(save.stage));
   E.length = B.length = K.length = M.length = boomQ.length = H.length = LN.length = SQ.length = 0; setWarn(H, LN);
   if (save.runs >= 1) MT.loginTick(); const sup = MT.supplyTick(); buildTank();
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
+  Object.assign(G, { state: hold ? 'hold' : 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
   music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false, sh: 0, da: 0, dcd: 1 });
   tank.g.visible = true; tgt = null; clearMarks(); P.pitch = P.roll = 0; P.markD = 0; P.px = 0; P.pz = 0;
-  save.runs++; MT.dailyAdd('runs', 1); persist(); UI.hideAll(); UI.setBoss(-1);
+  UI.hideAll(); UI.setBoss(-1);
   G.arrived = sup.arrived;
   G.tut = G.first ? 0 : 2; UI.hint(null);
+  if (!hold) begin();
+}
+export function begin() {
+  G.state = 'play'; save.runs++; MT.dailyAdd('runs', 1); persist();
   platform.gameplayStart(); ev('start', { run: save.runs, stage: G.stage, parts: [pt0().hull, pt0().turret, pt0().gear].join('/') });
 }
 // 途中で閉じてもスクラップが消えないよう、区切りごとに保存へ移す
@@ -349,7 +354,7 @@ function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木�
 }
 
 export function update(dt) {
-  if (G.state === 'boot' || G.state === 'levelup' || G.state === 'result') return;
+  if (G.state === 'boot' || G.state === 'hold' || G.state === 'levelup' || G.state === 'result') return;
   const live = G.state === 'play';
   if (live) G.t += dt;
   if (G.inv > 0) G.inv -= dt;

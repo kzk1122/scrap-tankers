@@ -55,6 +55,7 @@ export const T = {
   'Equip': ['Equipar', 'Equipar', 'Поставить', 'Ausrüsten', 'Équiper'],
   'Reward': ['Premio', 'Prêmio', 'Награда', 'Belohnung', 'Récompense'],
   'Login rewards (one per day you play)': ['Premios de acceso (uno por día jugado)', 'Prêmios de login (um por dia jogado)', 'Награды за вход (одна за игровой день)', 'Login-Belohnungen (eine pro Spieltag)', 'Récompenses de connexion (une par jour joué)'],
+  'Welcome back!': ['¡Bienvenido de nuevo!', 'Bem-vindo de volta!', 'С возвращением!', 'Willkommen zurück!', 'Bon retour !'],
   "Today's missions": ['Misiones de hoy', 'Missões de hoje', 'Задания на сегодня', 'Heutige Missionen', 'Missions du jour'],
   'All three: bonus +': ['Las tres: bonus +', 'As três: bônus +', 'Все три: бонус +', 'Alle drei: Bonus +', 'Les trois : bonus +'],
   'New missions every day': ['Nuevas misiones cada día', 'Novas missões todo dia', 'Новые задания каждый день', 'Jeden Tag neue Missionen', 'Nouvelles missions chaque jour'],

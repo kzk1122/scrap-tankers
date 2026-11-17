@@ -1,6 +1,10 @@
 // 計測: どこでやめたかを知るための匿名イベント。送り先（__EV__）が空なら貯めるだけで送らない
 import { TARGET, save, persist, today, LANG } from './core.js';
-const URL_ = __EV__, sid = Math.random().toString(36).slice(2, 10), q = [], seen = {};
+// 開発者のプレイは送らない: ?me=1 を一度開いた端末と、プレビュー用の URL（<ブランチ>.<名前>.pages.dev）。?me=0 で元に戻す
+let me = false;
+try { const m = new URLSearchParams(location.search).get('me'); if (m === '0') localStorage.removeItem('tk_me'); else if (m !== null) localStorage.setItem('tk_me', '1'); me = !!localStorage.getItem('tk_me'); } catch (e) { /* noop */ }
+const preview = /^[^.]+\.[^.]+\.pages\.dev$/.test(location.hostname);
+const URL_ = me || preview ? '' : __EV__, sid = Math.random().toString(36).slice(2, 10), q = [], seen = {};
 export const log = [];
 let touch = false;
 export function evTouch(v) { touch = v; }

@@ -1,13 +1,13 @@
 // 起動とメインループ、テスト用の入口
-import { diag, seed, save, setDayOff, missing } from './core.js';
+import { diag, seed, save, setDayOff, missing, TARGET } from './core.js';
 import * as MT from './meta.js';
 import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality } from './gfx.js';
 import { initInput, pollInput, setLock, relock, I } from './input.js';
 import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
 import * as MX from './metrics.js';
-import { initUi, showPause } from './ui.js';
-import { initGame, startRun, update, draw, snapshot, toBoss, pickUp, bank, G, P } from './game.js';
+import { initUi, showPause, showWelcome } from './ui.js';
+import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, G, P } from './game.js';
 
 const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
@@ -38,6 +38,10 @@ function frame(now) {
     if (!shown) { shown = true; platform.loaded(); MX.evTouch(I.touch); MX.once('load', { ms: Math.round(now), q: quality() }); }
   } catch (e) { diag('LOOP ' + e.message); }
 }
+function welcomeOrStart() { // その日はじめての再訪は「おかえり」画面から。それ以外はすぐ出撃
+  const wb = MT.welcome(); startRun(!!wb); camUpdate(0, 0, 0, true);
+  if (wb) { MX.ev('welcome', { day: wb.day, sup: wb.arrived || '' }); showWelcome(wb, () => { begin(); relock(); }); }
+}
 async function boot() {
   try {
     await platform.init(); forceMute(platform.muted()); platform.onMute(forceMute);
@@ -49,7 +53,8 @@ async function boot() {
     initGfx(document.getElementById('c')); initUi(); initGame(); initInput(audioInit, autoPause);
     document.getElementById('pz').addEventListener('click', e => { e.stopPropagation(); pause(); });
     window.addEventListener('blur', autoPause);
-    startRun(); camUpdate(0, 0, 0, true);
+    welcomeOrStart();
+    if (TARGET === 'artifact') window.addEventListener('tk-nextday', () => { const S = save; if (S.login) S.login.day--; if (S.supply) S.supply.day--; welcomeOrStart(); }); // 試作版だけ: 翌日の再訪を試す
     const leave = () => { bank(); MX.ev('leave', { st: G.state, run: save.runs, wave: G.wave }); MX.flush(); };
     window.addEventListener('pagehide', leave);
     document.addEventListener('visibilitychange', () => { if (document.hidden) { autoPause(); leave(); } audioPause(document.hidden || G.paused); });

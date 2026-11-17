@@ -43,14 +43,13 @@ const errs = [];
   await p.evaluate(() => { window.__tk.input({ mx: 0, mz: 0, auto: true }); window.dispatchEvent(new Event('blur')); }); ok(!(await p.evaluate(() => window.__tk.state().paused)), 'bots are not paused by blur');
   await p.close();
 }
-{ // 文言
-  const p = await b.newPage({ viewport: { width: 1280, height: 720 } }); p.on('pageerror', e => errs.push(e.message));
+{ // 文言（言語ごとに新しいセーブで開く。同じセーブを開き直すと「おかえり」画面が先に出るため）
   for (const l of ['en', 'es', 'pt', 'ru', 'de', 'fr']) {
+    const p = await b.newPage({ viewport: { width: 1280, height: 720 } }); p.on('pageerror', e => errs.push(e.message));
     await p.goto(`http://localhost:${port}/?lang=${l}`); await p.waitForTimeout(1000); await p.evaluate(() => window.__tk.pause());
     const t = await p.evaluate(() => ['pzt', 'pzs', 'resume', 'pzmute'].map(id => document.getElementById(id).textContent).concat([...window.__tk.miss].length));
-    ok(t[4] === 0, l + ' ' + t.slice(0, 4).join(' | '));
+    ok(t[4] === 0 && t[0], l + ' ' + t.slice(0, 4).join(' | ')); await p.close();
   }
-  await p.close();
 }
 ok(!errs.length, 'no page errors ' + errs.join('|'));
 await b.close(); srv.close(); console.log(fail ? 'FAILED ' + fail : 'all ok');

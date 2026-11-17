@@ -103,3 +103,10 @@ export function dailyAdd(id, v) {
   if (!D.bonus && D.m.every(m => m.done)) { D.bonus = true; save.scrap += DAILY_BONUS; fresh.push(jaEn('デイリー全達成ボーナス', 'All dailies bonus') + '　+' + DAILY_BONUS); persist(); }
 }
 export const takeFresh = () => fresh.shift();
+// ---- 再訪: その日はじめて開いたときに、ログイン報酬と届いた補給便をまとめて受け取る。出撃中のトーストで流さず「おかえり」画面で見せる ----
+export function welcome() {
+  if (save.runs < 1) return null;
+  const had = owned(LOGIN_PART), pay = loginTick(), sup = supplyTick(); fresh.length = 0;
+  if (!pay && !sup.arrived) return null;
+  return { pay, day: loginDay(), night: !had && owned(LOGIN_PART), arrived: sup.arrived, next: sup.next };
+}
