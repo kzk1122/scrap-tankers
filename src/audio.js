@@ -1,6 +1,6 @@
 // 効果音はすべて WebAudio で合成。種類ごとに鳴らす間隔を制限して同時発音を抑える
 import { save, persist } from './core.js';
-let ac = null, master = null, nbuf = null, bbuf = null, verb = null, clip = null, mg = null, held = false; // held: 一時停止中やタブを離れている間は鳴らさない
+let ac = null, master = null, nbuf = null, bbuf = null, verb = null, clip = null, low = null, mg = null, held = false; // held: 一時停止中やタブを離れている間は鳴らさない
 const last = {};
 export function audioInit() {
   if (ac) { if (ac.state !== 'running' && !held) ac.resume().catch(() => {}); return; }
@@ -13,7 +13,8 @@ export function audioInit() {
     const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     // 爆発用: 低音の多いブラウンノイズ、軽い歪み、屋外の残響（減衰するノイズを畳み込む）
     bbuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); { const b = bbuf.getChannelData(0); let l = 0; for (let i = 0; i < b.length; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; } }
-    clip = ac.createWaveShaper(); { const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; c[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); } clip.curve = c; } clip.connect(master);
+    low = ac.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 150; low.gain.value = 5; low.connect(master); // 爆発の低音を持ち上げる
+    clip = ac.createWaveShaper(); { const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; c[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); } clip.curve = c; } clip.connect(low);
     verb = ac.createConvolver(); { const L = (ac.sampleRate * 1.6) | 0, ir = ac.createBuffer(2, L, ac.sampleRate); for (let ch = 0; ch < 2; ch++) { const r = ir.getChannelData(ch); for (let i = 0; i < L; i++) r[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / L, 4); } verb.buffer = ir; }
     const vg = ac.createGain(); vg.gain.value = 0.22; verb.connect(vg); vg.connect(master);
   } catch (e) { ac = null; }
@@ -51,15 +52,18 @@ function nz(buf, at, dur, vol, type, f0, f1, atk, outs) {
 }
 // 実際の爆発に近い音: 破裂の「バッ」、歪んだ低い轟音、胸に来る低い衝撃、尾を引く地鳴り、飛び散る破片のパラパラ、屋外の残響。毎回少しずつ変える
 function blast(big) {
-  const v = 0.85 + Math.random() * 0.3, k = big ? 0.75 : 0.45, L = big ? 1 : 0.65;
-  nz(nbuf, 0, 0.06, 0.5 * k, 'highpass', 1400 * v, 700, 0.002, [master, verb]);
-  nz(bbuf, 0, 1.3 * L, 1.1 * k, 'lowpass', 1100 * v, 90, 0.005, [clip, verb]);
-  nz(nbuf, 0, 0.5 * L, 0.35 * k, 'bandpass', 600 * v, 160, 0.004, [clip]);
-  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), f0 = (big ? 62 : 74) * v;
-  o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.42, t + 0.3 * L);
-  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.75 * k, t + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t + 0.38 * L);
-  o.connect(g); g.connect(clip); o.start(t); o.stop(t + 0.42 * L);
-  nz(bbuf, 0.03, 2.0 * L, 0.42 * k, 'lowpass', 260, 50, 0.08, [master, verb]);
+  const v = 0.85 + Math.random() * 0.3, k = big ? 0.6 : 0.36, L = big ? 1 : 0.65;
+  nz(nbuf, 0, 0.06, 0.45 * k, 'highpass', 1400 * v, 700, 0.002, [master, verb]);
+  nz(bbuf, 0, 1.3 * L, 1.1 * k, 'lowpass', 900 * v, 80, 0.005, [clip, verb]);
+  nz(nbuf, 0, 0.5 * L, 0.3 * k, 'bandpass', 520 * v, 140, 0.004, [clip]);
+  // 低い衝撃: 基音（40〜60Hz）と、スマホのスピーカーでも低音に聞こえるよう1オクターブ上を重ねる
+  const t = ac.currentTime, f0 = (big ? 52 : 60) * v;
+  for (const [m, vol] of [[1, 0.7], [2, 0.32]]) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f0 * m, t); o.frequency.exponentialRampToValueAtTime(f0 * m * 0.5, t + 0.45 * L);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * k, t + 0.01); g.gain.setValueAtTime(vol * k, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.6 * L);
+    o.connect(g); g.connect(clip); o.start(t); o.stop(t + 0.65 * L);
+  }
+  nz(bbuf, 0.02, 2.4 * L, 0.55 * k, 'lowpass', 200, 45, 0.06, [low, verb]); // 地鳴り
   for (let i = 0, n = big ? 6 : 3; i < n; i++) nz(nbuf, 0.08 + Math.random() * 0.5 * L, 0.03 + Math.random() * 0.04, (0.05 + Math.random() * 0.08) * k, 'highpass', 2500 + Math.random() * 2500, 1500, 0.002, [master]);
 }
 export const sfx = {
