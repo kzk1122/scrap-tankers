@@ -38,6 +38,8 @@ const play = p => p.evaluate(() => { const T = __tk; T.q(4); T.manual(true); T.i
   ok(s.scrap === 797 && s.stage === 3 && s.tur === 'twin' && s.paint === 'orange', 'save loaded from SDK data (+20 login reward) ' + JSON.stringify([s.scrap, s.stage, s.tur]));
   ok(['init', 'loadingStart', 'loadingStop', 'gameplayStart'].every(n => s.calls.includes(n)), 'sdk calls ' + s.calls.join(','));
   ok(s.muted && s.user && s.user.name === 'Tester', 'muteAudio respected, user read');
+  const pc = await p.evaluate(() => { const n = __cg.calls.length; __tk.pause(); __tk.resume(); return __cg.calls.slice(n).join(','); });
+  ok(pc === 'gameplayStop,gameplayStart', 'pause/resume tells the SDK: ' + pc);
   await play(p); const c2 = await p.evaluate(() => ({ calls: __cg.calls, saved: JSON.parse(__cg.data.scrap_tankers_v1).runs }));
   ok(c2.calls.includes('gameplayStop') && c2.calls.includes('setItem') && c2.saved >= 10, 'gameplayStop + progress written to SDK (runs ' + c2.saved + ')');
   ok(!errs.length, 'cg no errors ' + errs.join('|')); await p.close();

@@ -17,6 +17,7 @@ const armed = () => performance.now() - openAt > 380; // 連打で誤って選�
 export function initUi() {
   $('mute').addEventListener('click', () => { audioInit(); $('mute').classList.toggle('off', toggleMute()); });
   $('mute').classList.toggle('off', save.mute);
+  $('pzmute').addEventListener('click', e => { e.stopPropagation(); $('mute').click(); pzMute(); }); // 押しても再開しない
   window.addEventListener('keydown', e => {
     if (!$('lvl').hidden && armed() && e.key >= '1' && e.key <= '3') { if (pickCb) pickCb(+e.key - 1); }
     else if (!$('res').hidden && armed() && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (resH) resH.go(); }
@@ -46,9 +47,17 @@ export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden =
 // PC では操作方法を常に左下へ出す（スマホでは出さない）
 export function legend(show, lock) {
   touchUi = !show; const k = $('keys'), key = show + '|' + !!lock; if (cache.keys === key) return; cache.keys = key; k.hidden = !show;
-  if (show) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], lock ? [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('動かした方向へ進む', 'Steer')] : [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  if (show) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], lock ? [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('動かした方向へ進む', 'Steer')] : [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>Esc</kbd>', jaEn('一時停止', 'Pause')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
-export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; pickCb = null; resH = null; }
+export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; pickCb = null; resH = null; }
+// 一時停止の画面。画面のどこをクリック（タップ）しても再開する
+export function showPause(on, touch, resume) {
+  const o = $('pause'); if (!on) { o.hidden = true; return; }
+  $('pzt').textContent = jaEn('一時停止', 'PAUSED');
+  $('pzs').textContent = touch ? jaEn('画面をタップすると再開します', 'Tap to resume') : jaEn('クリックか Enter で再開', 'Click or press Enter to resume');
+  $('resume').textContent = jaEn('再開する', 'Resume'); pzMute(); o.onclick = resume; o.hidden = false;
+}
+function pzMute() { $('pzmute').textContent = '♪ ' + jaEn('音', 'Sound') + (save.mute ? ' OFF' : ' ON'); }
 
 export function showLevelUp(ch, lvl, cb) {
   pickCb = cb; openAt = performance.now();
@@ -79,7 +88,7 @@ export function showResult(d, h) {
   $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); ev('again', { s: Math.round((performance.now() - openAt) / 1000) }); resH.go(); } };
   if (TARGET === 'artifact') debugStage(d.win);
-  drawAll(); $('res').hidden = false;
+  drawAll(); $('res').hidden = false; $('res').scrollTop = 0;
 }
 // 試作版だけ：勝たなくても全拠点を見られるようにする拠点えらび
 function debugStage(win) {

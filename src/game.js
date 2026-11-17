@@ -159,7 +159,7 @@ export function startRun() {
   E.length = B.length = K.length = M.length = boomQ.length = H.length = LN.length = SQ.length = 0; setWarn(H, LN);
   if (save.runs >= 1) MT.loginTick(); const sup = MT.supplyTick(); buildTank();
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
+  Object.assign(G, { state: 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
   music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false, sh: 0, da: 0, dcd: 1 });
   tank.g.visible = true; tgt = null; clearMarks(); P.pitch = P.roll = 0; P.markD = 0; P.px = 0; P.pz = 0;
@@ -323,7 +323,7 @@ function showResult() {
   MT.loginTick(); const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
   let unl = []; bank(); if (G.won) { save.stage++; if (save.stage > save.best) { save.best = save.stage; unl = MT.unlockedAt(save.best); } } persist();
   G.state = 'result';
-  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, sp: G.spN, won: G.won ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
+  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, sp: G.spN, pz: G.pzN, won: G.won ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
   music('calm'); musicVol(0.45);
   const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next, unlocked: unl }, { buy: buyGar, go: startRun }); G.arrived = null;
 }
@@ -526,7 +526,7 @@ function aimPt() { // 予告線のうち自機にいちばん近い点（ボッ�
 }
 export function toBoss() { for (const e of E) e.dead = true; E.length = 0; G.wave = NWAVE - 1; G.wt = 0; startWave(NWAVE); }
 export function snapshot() {
-  return { state: G.state, sp: G.sp, spN: G.spN, t: G.t, wave: G.wave, lvl: G.lvl, hp: P.hp, maxhp: S.maxhp, kills: G.kills, scrap: G.scrap, enemies: E.length, bullets: B.length, gears: K.length, x: P.x, z: P.z, won: G.won, stage: G.stage, ups: Object.assign({}, u),
+  return { state: G.state, paused: !!G.paused, sp: G.sp, spN: G.spN, t: G.t, wave: G.wave, lvl: G.lvl, hp: P.hp, maxhp: S.maxhp, kills: G.kills, scrap: G.scrap, enemies: E.length, bullets: B.length, gears: K.length, x: P.x, z: P.z, won: G.won, stage: G.stage, ups: Object.assign({}, u),
     ch: G.state === 'levelup' ? G.choices.map(d => d.id) : [],
     near: E.slice().sort((a, b) => ((a.x - P.x) ** 2 + (a.z - P.z) ** 2) - ((b.x - P.x) ** 2 + (b.z - P.z) ** 2)).slice(0, 6).map(e => [e.x, e.z, e.k]),
     foe: B.filter(b => b.foe && (b.x - P.x) ** 2 + (b.z - P.z) ** 2 < 64).slice(0, 8).map(b => [b.x, b.z]).concat(H.map(h => [h.x, h.z]), aimPt()),
