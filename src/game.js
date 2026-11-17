@@ -1,6 +1,6 @@
 // ゲーム本体: 自機、敵、弾、歯車、波、強化、勝敗
 import { THREE, rnd, rr, clamp, angLerp, save, persist, jaEn } from './core.js';
-import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake, applyTheme, mkTank, moveTracks, tankGeo, fxExplode, fxMuzzle, fxSparks, fxDust, fxSplash, fxAmb, addMark, clearMarks, flash, setWarn } from './gfx.js';
+import { scene, geo, MAT, BMAT, Inst, burst, ring, addShake, applyTheme, mkTank, moveTracks, tankGeo, fxExplode, fxBlast, fxMuzzle, fxSparks, fxHit, charTank, camIntro, fxWreck, fxShell, fxShock, fxDust, fxSplash, fxAmb, addMark, clearMarks, flash, setWarn } from './gfx.js';
 import { themeOf, areaOf } from './themes.js';
 import * as W from './world.js';
 import { I } from './input.js';
@@ -77,25 +77,24 @@ export const NWAVE = WAVES.length;
 export const G = { state: 'boot' };
 export const P = { x: 0, z: 0 };
 export const S = {};
-const E = [], B = [], K = [], M = [], boomQ = [], SQ = []; // SQ: 必殺技の着弾待ち
+const E = [], B = [], K = [], M = [], boomQ = [], SQ = [], WK = [], VQ = [], WKL = [3.6, 6]; // SQ: 必殺技の着弾待ち、WK: 倒した敵の残骸、VQ: 見た目だけの連続爆発
 let drone, shield, tankKey = '';
-let u = {}, TH = null, thKey = '', instFar, instSmall, tank, instE, instB, instBul, instGear, instHeal, instMine, instSaw, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
+let u = {}, TH = null, thKey = '', instFar, instSmall, tank, instE, instT, ESC, instB, instBul, instGear, instHeal, instMine, instSaw, tgtT = 0, tgt = null, pickN = 0, pickT = 0;
 
 export function initGame() {
   drone = new THREE.Mesh(geo([{ s: [0.7, 0.22, 0.7], p: [0, 0, 0], c: 0xffb21e }, { s: [1.3, 0.06, 0.16], p: [0, 0.16, 0], c: 0x39405c }, { s: [0.16, 0.06, 1.3], p: [0, 0.16, 0], c: 0x39405c }, { s: [0.2, 0.16, 0.5], p: [0, -0.12, 0.3], c: 0x39405c }]), MAT);
   shield = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.09, 6, 28), new THREE.MeshBasicMaterial({ color: 0x8fe3ff, transparent: true, opacity: 0.75 })); shield.rotation.x = Math.PI / 2; shield.position.y = 0.9;
   drone.castShadow = true; drone.visible = shield.visible = false; scene.add(drone); scene.add(shield);
-  instE = [
-    new Inst(tankGeo(0x7a4fe0, { lite: true, scale: 0.52 }), 140, { shadow: true }),
-    new Inst(tankGeo(0xd23a6e, { lite: true, long: true, scale: 0.64 }), 50, { shadow: true }),
-    new Inst(tankGeo(0xc8362f, { plow: true, scale: 0.98, tur: 0xe86a58 }), 30, { shadow: true }),
-    new Inst(tankGeo(0x2b3158, { twin: true, crown: true, plow: true, scale: 1.8, tur: 0xc23a6a }), 2, { shadow: true }),
-    new Inst(tankGeo(0xb7d43a, { lite: true, light: true, short: true, scale: 0.46 }), 60, { shadow: true }),
-    new Inst(tankGeo(0x19a59a, { lite: true, short: true, armor: true, scale: 0.7, tur: 0xff8a2a }), 30, { shadow: true }),
-    new Inst(tankGeo(0x3a55b8, { lite: true, long: true, scale: 0.78, tur: 0x8fa6ff }), 30, { shadow: true }),
-    new Inst(tankGeo(0x6a1f2e, { crown: true, plow: true, light: true, scale: 1.65, tur: 0xe8b62a }), 2, { shadow: true }),
-    new Inst(tankGeo(0x1f4038, { twin: true, crown: true, armor: true, scale: 2.05, tur: 0x3fae8a }), 2, { shadow: true }),
+  // 敵の見た目: [色, 形, 同時に出せる数]。車体と砲塔を分け、砲塔は自機の方を向く
+  const ED = [
+    [0x7a4fe0, { lite: true, scale: 0.52 }, 140], [0xd23a6e, { lite: true, long: true, scale: 0.64 }, 50], [0xc8362f, { plow: true, scale: 0.98, tur: 0xe86a58 }, 30],
+    [0x2b3158, { twin: true, crown: true, plow: true, scale: 1.8, tur: 0xc23a6a, boss: 1 }, 2], [0xb7d43a, { lite: true, light: true, short: true, scale: 0.46 }, 60],
+    [0x19a59a, { lite: true, short: true, armor: true, scale: 0.7, tur: 0xff8a2a }, 30], [0x3a55b8, { lite: true, long: true, scale: 0.78, tur: 0x8fa6ff }, 30],
+    [0x6a1f2e, { crown: true, plow: true, light: true, scale: 1.65, tur: 0xe8b62a, boss: 2 }, 2], [0x1f4038, { twin: true, crown: true, armor: true, scale: 2.05, tur: 0x3fae8a, boss: 3 }, 2],
   ];
+  instE = ED.map(([c, o, n]) => new Inst(tankGeo(c, Object.assign({ part: 'body' }, o)), n, { shadow: true }));
+  instT = ED.map(([c, o, n]) => new Inst(tankGeo(c, Object.assign({ part: 'tur' }, o)), n, { shadow: true }));
+  ESC = ED.map(d => d[1].scale);
   instSaw = new Inst(geo([{ s: [1.2, 0.1, 1.2], p: [0, 0, 0], c: 0xd0d6e2, cyl: 8 }, { s: [1.5, 0.06, 0.3], p: [0, 0, 0], c: 0xf4f7fb }, { s: [0.3, 0.06, 1.5], p: [0, 0, 0], c: 0xf4f7fb }]), 4, {});
   const ph = () => new THREE.BoxGeometry(1, 1, 1); // テーマごとに setTheme() で差し替える
   instB = [new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 420, { shadow: true }), new Inst(ph(), 120, { shadow: true })];
@@ -160,14 +159,14 @@ const need = l => 4 + 3 * (l - 1) + TUNE.xq * (l - 1) * (l - 1);
 // hold: 「おかえり」画面の裏で戦場だけ用意し、出撃ボタンで begin() するまで止めておく
 export function startRun(hold) {
   W.genWorld(themeOf(save.stage).id, save.stage); setTheme(save.stage); musicTrack(areaOf(save.stage));
-  E.length = B.length = K.length = M.length = boomQ.length = H.length = LN.length = SQ.length = 0; setWarn(H, LN);
+  E.length = B.length = K.length = M.length = boomQ.length = H.length = LN.length = SQ.length = WK.length = VQ.length = 0; setWarn(H, LN);
   if (save.runs >= 1) MT.loginTick(); const sup = MT.supplyTick(); buildTank();
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: hold ? 'hold' : 'play', t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, xpD: Math.sqrt(1 + 0.12 * (save.stage - 1)), stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
+  Object.assign(G, { state: hold ? 'hold' : 'play', slowT: 0, t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, xpD: Math.sqrt(1 + 0.12 * (save.stage - 1)), stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
   G.as = save.lose && save.lose.s === save.stage ? Math.min(TUNE.asMax, save.lose.n) : 0; // 続けて負けた回数
   music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false, sh: 0, da: 0, dcd: 1 });
-  tank.g.visible = true; tgt = null; clearMarks(); P.pitch = P.roll = 0; P.markD = 0; P.px = 0; P.pz = 0;
+  tank.g.visible = true; charTank(tank, false); tgt = null; clearMarks(); P.pitch = P.roll = 0; P.markD = 0; P.px = 0; P.pz = 0;
   UI.hideAll(); UI.setBoss(-1);
   G.arrived = sup.arrived;
   G.tut = G.first ? 0 : 2; UI.hint(null);
@@ -175,6 +174,7 @@ export function startRun(hold) {
 }
 export function begin() {
   G.state = 'play'; save.runs++; MT.dailyAdd('runs', 1); persist();
+  camIntro();
   platform.gameplayStart(); ev('start', { run: save.runs, stage: G.stage, parts: [pt0().hull, pt0().turret, pt0().gear].join('/') });
 }
 // 途中で閉じてもスクラップが消えないよう、区切りごとに保存へ移す
@@ -190,11 +190,18 @@ function startWave(i) {
   G.queue.sort((a, b) => a.t - b.t); G.hpM = hpM;
   UI.banner('WAVE ' + (i + 1) + ' / ' + NWAVE); if (i > 0) sfx.wave();
 }
+export function spawnAt(k, x, z, ry = 0) { spawn(k); const e = E[E.length - 1]; e.x = x; e.z = z; e.ry = e.ta = ry; e.born = 1; e.drop = 0; H.length = 0; return e; } // 掲載画像の撮影用
 function spawn(k) {
-  const d = ET[k], a = rnd() * 6.283, dist = d.boss ? 22 : rr(19, 26);
+  const d = ET[k], a = rnd() * 6.283, dist = d.boss ? 8.5 : rr(19, 26); // ボスは画面の中（自機から少し離れた所）に降りる
   const e = { k, x: clamp(P.x + Math.cos(a) * dist, -W.A + 2, W.A - 2), z: clamp(P.z + Math.sin(a) * dist, -W.A + 2, W.A - 2), hp: d.hp * G.hpM, max: d.hp * G.hpM, r: d.r, ry: 0, kx: 0, kz: 0, cd: rr(1, 2.5), hc: 0, hitT: 0, born: 0, dead: false, c2: 4, strafe: rnd() < 0.5 ? 1 : -1, mv: null, mi: 0, rest: 1.6, hold: 0, dash: 0 };
-  if (Math.hypot(e.x - P.x, e.z - P.z) < 12) { e.x = clamp(P.x - Math.cos(a) * dist, -W.A + 2, W.A - 2); e.z = clamp(P.z - Math.sin(a) * dist, -W.A + 2, W.A - 2); }
+  if (!d.boss && Math.hypot(e.x - P.x, e.z - P.z) < 12) { e.x = clamp(P.x - Math.cos(a) * dist, -W.A + 2, W.A - 2); e.z = clamp(P.z - Math.sin(a) * dist, -W.A + 2, W.A - 2); }
+  if (d.boss) { e.drop = DROP; H.push({ x: e.x, z: e.z, t: 0, T: DROP, r: e.r * 1.5, dmg: d.dmg }); } // ボスは予告円の上に空から降ってくる
   E.push(e); if (d.boss) { G.boss = e; UI.setBoss(1); }
+}
+const DROP = 1.2;
+function land(e) { // ボスの着地: 衝撃波、土ぼこり、揺れ。下敷きの障害物は壊れる
+  addShake(1.1); sfx.boom(true); fxShock(e.x, e.z, e.r * 1.6, 0xffa36b); burst(e.x, 0.5, e.z, 16, TH.dust, 10, 0.34, 0.8, 1.2);
+  for (const b of W.blocks) if (b.hp > 0 && Math.hypot(b.x - e.x, b.z - e.z) < e.r + 1.2) W.damageBlock(b, 1e4);
 }
 // ボスの技。技と技のあいだに休みを入れ、体力が半分を切ると休みが短くなる
 function bossAI(e, dt, dx, dz) {
@@ -260,30 +267,39 @@ function special() {
   const a = P.ty, auto = I.touch || I.auto, far = auto ? (tgt && !tgt.dead ? Math.min(22, Math.hypot(tgt.x - P.x, tgt.z - P.z)) : 11) : clamp(Math.hypot(I.ax - P.x, I.az - P.z), 5, 22);
   const x = P.x + Math.sin(a) * far, z = P.z + Math.cos(a) * far, mx = P.x + Math.sin(a) * 2.6, mz = P.z + Math.cos(a) * 2.6;
   P.recoil = 2.2; G.inv = Math.max(G.inv, 0.5); addShake(0.5); sfx.special(); flash(mx, mz, 9, 0x8fe3ff);
-  fxMuzzle(mx, mz, a); burst(mx, 1.4, mz, 18, 0x8fe3ff, 12, 0.4, 0.5); ring(P.x, P.z, 5, 0x8fe3ff); ring(x, z, 6.5, 0x8fe3ff);
+  fxMuzzle(mx, mz, a, 0x8fe3ff); fxShell(mx, mz, x, z, 0.2, 0x8fe3ff); burst(mx, 1.4, mz, 12, 0x8fe3ff, 12, 0.3, 0.5); ring(P.x, P.z, 5, 0x8fe3ff);
   for (const b of B) if (b.foe && (b.x - P.x) ** 2 + (b.z - P.z) ** 2 < 144) b.dead = true; // 近くの敵弾を消す
   SQ.push({ x, z, t: 0.2, R: 6.5, d: S.dmg * 9 });
   for (let j = 0; j < 4; j++) { const q = j / 4 * 6.283 + rr(-0.4, 0.4), r = rr(3.5, 6); SQ.push({ x: x + Math.sin(q) * r, z: z + Math.cos(q) * r, t: 0.42 + j * 0.09, R: 4, d: S.dmg * 3 }); }
 }
+function wreck(e) { // 残骸。ときどき砲塔が吹き飛んで横に落ちる
+  const sc = ESC[e.k], pop = !ET[e.k].boss && rnd() < 0.7, a = rnd() * 6.283, v = 3.4 * sc;
+  WK.push({ k: e.k, x: e.x, z: e.z, ry: e.ry + rr(-0.35, 0.35), ta: e.ta ?? e.ry, t: 0, st: 0, big: !!ET[e.k].boss || e.k === 2, pop, tx: 0, ty: 0, tz: 0, vx: Math.sin(a) * v, vz: Math.cos(a) * v, vy: pop ? rr(7.5, 10) : 0, land: -0.9 * sc });
+  if (WK.length > 28) WK.shift();
+}
 function hurtE(e, d, kx, kz) {
-  if (e.dead) return; if (ET[e.k].boss) charge(Math.min(d, e.hp) / e.max * 0.8); e.hp -= d; e.hitT = 0.1;
+  if (e.dead || e.drop > 0) return; if (ET[e.k].boss) charge(Math.min(d, e.hp) / e.max * 0.8); e.hp -= d; e.hitT = 0.1;
   const m = ET[e.k].boss ? 0 : e.k === 2 ? 0.35 : 1; e.kx += kx * m; e.kz += kz * m;
   if (e.hp <= 0) kill(e);
 }
 function kill(e) {
   e.dead = true; const d = ET[e.k]; G.kills++; if (!d.boss) charge(d.xp * 0.035); once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
   const bs = !!d.boss, big = bs || e.k === 2, sm = e.k === 0 || e.k === 4;
-  burst(e.x, 0.8, e.z, sm ? 8 : bs ? 60 : 16, d.col, big ? 11 : 8, big ? 0.5 : 0.34, 0.6);
-  burst(e.x, 0.8, e.z, 4, 0x2a2d44, 6, 0.3, 0.7); fxExplode(e.x, e.z, sm ? 1.5 : bs ? 6 : e.k === 2 || e.k === 5 ? 3 : 1.9);
-  if (big || e.k === 5) { ring(e.x, e.z, e.r * 2.2); addShake(bs ? 1 : 0.3); sfx.boom(true); } else { sfx.boom(false); addShake(0.06); }
+  const R = sm ? 2.5 : bs ? 6 : e.k === 2 || e.k === 5 ? 3.8 : 3; // 爆発の大きさ（倒した手応えが出るよう、敵の見た目より大きめ）
+  burst(e.x, 0.8, e.z, sm ? 12 : bs ? 46 : 18, d.col, big ? 12 : 10, bs ? 0.4 : big ? 0.34 : 0.26, 0.8, 1.3, 0.35);
+  burst(e.x, 0.8, e.z, bs ? 14 : 5, 0x4a4d5c, bs ? 10 : 8, bs ? 0.44 : 0.24, 0.9, 1.3, 0.6); fxExplode(e.x, e.z, R); fxBlast(e.x, e.z, R / 3); wreck(e);
+  if (!bs) { VQ.push({ x: e.x + rr(-0.9, 0.9), z: e.z + rr(-0.9, 0.9), t: rr(0.08, 0.14), R: R * 0.55, quiet: true }); if (!sm) VQ.push({ x: e.x + rr(-1.2, 1.2), z: e.z + rr(-1.2, 1.2), t: rr(0.2, 0.28), R: R * 0.45, quiet: true }); } // 遅れて小さな誘爆
+  if (bs) G.slowT = 0.9;
+  if (bs) for (let j = 0; j < 7; j++) { const a = j * 2.4; VQ.push({ x: e.x + Math.sin(a) * e.r * rr(0.4, 1.1), z: e.z + Math.cos(a) * e.r * rr(0.4, 1.1), t: 0.15 + j * 0.17, R: j === 6 ? 4.5 : rr(2, 3.2) }); }
+  ring(e.x, e.z, e.r * 2.8, 0xffd08a); if (big || e.k === 5) { ring(e.x, e.z, e.r * 4); addShake(bs ? 1 : 0.35); sfx.boom(true); } else { sfx.boom(false); addShake(0.13); }
   if (e.k === 5) explode(e.x, e.z, 3.4, 30); // 自爆車は倒すと周りの敵を巻き込む
   if (u.vamp && !P.dead) P.hp = Math.min(S.maxhp, P.hp + 0.5 * u.vamp);
   const n = bs ? 14 : e.k === 2 ? 3 : 1;
   for (let i = 0; i < n; i++) K.push({ x: e.x + rr(-1, 1) * (n > 1 ? e.r : 0.2), z: e.z + rr(-1, 1) * (n > 1 ? e.r : 0.2), v: bs ? 2 : e.k === 2 ? (i === 0 ? 3 : 1) : d.xp, t: 0, heal: false, vac: false });
   if (bs) win();
 }
-function explode(x, z, R, d) {
-  ring(x, z, R); fxExplode(x, z, R); burst(x, 1, z, 5, 0x4a4f66, 8, 0.36, 0.9);
+export function explode(x, z, R, d) {
+  ring(x, z, R); fxExplode(x, z, R); burst(x, 1, z, 5, 0x4a4f66, 8, 0.3, 0.9, 1, 0.6);
   addShake(Math.min(0.55, R * 0.07)); sfx.boom(R > 4);
   for (const e of E) { if (e.dead) continue; const dx = e.x - x, dz = e.z - z, dd = Math.hypot(dx, dz); if (dd < R + e.r) { const f = 1 - 0.5 * Math.min(1, dd / R), il = 1 / (dd || 1); hurtE(e, d * f, dx * il * 9, dz * il * 9); } }
   for (let i = 0; i < W.blocks.length; i++) { const b = W.blocks[i]; if (b.hp <= 0) continue; if (Math.hypot(b.x - x, b.z - z) < R + 0.5) W.damageBlock(b, d * 0.8); }
@@ -303,14 +319,14 @@ function hurt(d) {
   if (S.gear === 'shield' && P.sh <= 0) { P.sh = 8; G.inv = 0.6; ring(P.x, P.z, 3.2, 0x8fe3ff); burst(P.x, 1, P.z, 10, 0x8fe3ff, 8, 0.3, 0.4); sfx.hit(); return; }
   P.hp -= d * S.plate * Math.min(1, 0.5 + 0.17 * Math.max(0, G.wave) + 0.15 * (G.stage - 1)) * (1 + TUNE.dmX * Math.max(0, G.stage - 2)) * (1 - TUNE.as * G.as); G.inv = 0.45; UI.vignette(); addShake(0.3); sfx.hurt(); burst(P.x, 1, P.z, 5, 0xffb21e, 6, 0.3, 0.4);
   if (P.hp <= 0) {
-    P.hp = 0; P.dead = true; G.state = 'dead'; G.endT = 1.3; tank.g.visible = false; fxExplode(P.x, P.z, 5);
+    P.hp = 0; P.dead = true; G.state = 'dead'; G.endT = 1.3; G.slowT = 0.6; tank.g.visible = true; charTank(tank, true); WK.push({ k: -1, x: P.x, z: P.z, t: 0.3, st: 0, big: true }); fxExplode(P.x, P.z, 5);
     burst(P.x, 1, P.z, 40, 0xffb21e, 12, 0.5, 0.9); burst(P.x, 1, P.z, 16, 0x39405c, 9, 0.5, 1); ring(P.x, P.z, 6); addShake(1); sfx.boom(true); sfx.lose();
     platform.gameplayStop();
   }
 }
 function win() {
   G.state = 'win'; G.endT = 2.4; G.won = true; G.scrap += 30 + 10 * G.stage; MT.dailyAdd('win', 1); MT.dailyAdd('scrap', 30 + 10 * G.stage); UI.setBoss(-1);
-  for (const e of E) if (!e.dead) { e.dead = true; burst(e.x, 0.8, e.z, 8, ET[e.k].col, 8, 0.34, 0.6); fxExplode(e.x, e.z, 1.6); }
+  for (const e of E) if (!e.dead) { e.dead = true; burst(e.x, 0.8, e.z, 7, ET[e.k].col, 8, 0.26, 0.7, 1, 0.3); fxExplode(e.x, e.z, 1.6); wreck(e); }
   for (const b of B) b.dead = true; for (const k of K) k.vac = true; H.length = 0;
   UI.banner(jaEn('拠点を奪還！', 'BASE RECLAIMED!'), true); sfx.win(); platform.gameplayStop(); platform.happyTime();
 }
@@ -352,7 +368,7 @@ function tutorial() {
 }
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
   let best = null, bd = (S.bspd * S.blife + 1) ** 2;
-  for (const e of E) { if (e.dead) continue; const d = (e.x - P.x) ** 2 + (e.z - P.z) ** 2; if (d < bd) { bd = d; best = e; } }
+  for (const e of E) { if (e.dead || e.drop > 0) continue; const d = (e.x - P.x) ** 2 + (e.z - P.z) ** 2; if (d < bd) { bd = d; best = e; } }
   if (best) return best; bd = 81;
   for (const b of W.blocks) { if (b.hp <= 0 || b.t === W.WALL) continue; const d = (b.x - P.x) ** 2 + (b.z - P.z) ** 2; if (d < bd) { bd = d; best = b; } }
   return best;
@@ -371,6 +387,7 @@ export function update(dt) {
     const wet = W.inWater(P.x, P.z), spd = S.speed * (wet ? 0.62 : 1);
     const k = 1 - Math.exp(-(I.touch ? 14 : I.mx || I.mz ? 30 : 13) * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k;
     if (I.mx || I.mz) { G.dustT -= dt; if (G.dustT <= 0) { G.dustT = 0.07; const bx = P.x - Math.sin(P.ry) * 1.1, bz = P.z - Math.cos(P.ry) * 1.1; if (wet) { fxSplash(bx, bz, 2); if (rnd() < 0.2) ring(P.x, P.z, 2.2, 0x9fd8ff); } else fxDust(bx, bz, TH.dust, 1); } }
+    { const hr = P.hp / S.maxhp; if (hr < 0.3) { G.smkT = (G.smkT || 0) - dt; if (G.smkT <= 0) { G.smkT = 0.13; fxWreck(P.x, P.z, hr < 0.15 ? 0.5 : 1.3, false); } } } // 体力が少ないと自機から煙と炎
     const ax0 = P.vx0 || 0, az0 = P.vz0 || 0, acx = (P.vx - ax0) / dt, acz = (P.vz - az0) / dt, fw = acx * Math.sin(P.ry) + acz * Math.cos(P.ry), sd = acx * Math.cos(P.ry) - acz * Math.sin(P.ry), kt = 1 - Math.exp(-8 * dt);
     P.pitch += (clamp(-fw * 0.006, -0.09, 0.09) - P.pitch) * kt; P.roll += (clamp(sd * 0.006, -0.08, 0.08) - P.roll) * kt; P.vx0 = P.vx; P.vz0 = P.vz;
     fxAmb(TH.amb, P.x, P.z, dt);
@@ -418,6 +435,7 @@ export function update(dt) {
   // ---- 敵 ----
   for (let i = 0; i < E.length; i++) {
     const e = E[i]; if (e.dead) continue; const d = ET[e.k];
+    if (e.drop > 0) { e.drop -= dt; if (e.drop <= 0) land(e); continue; }
     e.born += dt; if (e.hitT > 0) e.hitT -= dt; if (e.hc > 0) e.hc -= dt;
     let dx = P.x - e.x, dz = P.z - e.z; const dist = Math.hypot(dx, dz) || 1; dx /= dist; dz /= dist;
     let mx = dx, mz = dz;
@@ -435,6 +453,7 @@ export function update(dt) {
     const es = d.sp * esm * (W.feat.river && W.inWater(e.x, e.z) ? 0.7 : 1);
     e.x += (mx * es + e.kx) * dt; e.z += (mz * es + e.kz) * dt;
     e.ry = angLerp(e.ry, e.k === 1 || e.k === 6 || (d.boss && !(e.dash > 0)) ? Math.atan2(dx, dz) : Math.atan2(mx || dx, mz || dz), 1 - Math.exp(-8 * dt));
+    e.ta = angLerp(e.ta ?? e.ry, d.boss && e.ca !== undefined && (e.mv === 'snipe' || e.mv === 'charge') ? e.ca : Math.atan2(dx, dz), 1 - Math.exp(-7 * dt)); // 砲塔は自機（ボスは狙っている向き）を向く
     W.pushOut(e, e.r, b => W.damageBlock(b, d.chew * dt));
     if (!live) continue;
     if (e.k === 1) { e.cd -= dt; if (e.cd <= 0 && dist < 19) { e.cd = d.shoot; fxMuzzle(e.x + dx * 1.3, e.z + dz * 1.3, Math.atan2(dx, dz), 0xff3a7a); bullet(e.x + dx * 1.2, e.z + dz * 1.2, Math.atan2(dx, dz), true, d.dmg, 11, 2.4); } }
@@ -466,7 +485,7 @@ export function update(dt) {
       const e = E[j]; if (e.dead || e.born < 0.15) continue; const dx = e.x - b.x, dz = e.z - b.z, r = e.r + 0.35;
       if (dx * dx + dz * dz > r * r || (b.hit && b.hit.includes(e))) continue;
       const sp = Math.hypot(b.vx, b.vz); if (S.frost) e.slow = 1 + 0.6 * S.frost; if (b.dmg > S.dmg * 1.5) ring(e.x, e.z, 1.6, 0xffd23f); hurtE(e, b.dmg, b.vx / sp * 4, b.vz / sp * 4); sfx.hit();
-      fxSparks(b.x, b.z, 4);
+      fxHit(b.x, b.z);
       if (S.exR) explode(b.x, b.z, S.exR, b.dmg * 0.6);
       if (b.bounce > 0) {
         let n = null, nd = 144; for (const o of E) { if (o.dead || o === e || (b.hit && b.hit.includes(o))) continue; const q = (o.x - b.x) ** 2 + (o.z - b.z) ** 2; if (q < nd) { nd = q; n = o; } }
@@ -482,8 +501,10 @@ export function update(dt) {
     for (const e of E) { if (e.dead) continue; if ((e.x - m.x) ** 2 + (e.z - m.z) ** 2 < (e.r + 0.9) ** 2) { M.splice(i, 1); explode(m.x, m.z, 3.2 + 0.4 * S.mine, 35 * (S.dmg / 10)); break; } }
   }
   if (live && I.sp) special(); I.sp = false;
-  for (let i = SQ.length - 1; i >= 0; i--) { const q = SQ[i]; q.t -= dt; if (q.t <= 0) { SQ.splice(i, 1); explode(q.x, q.z, q.R, q.d); flash(q.x, q.z, q.R, 0xffd08a); burst(q.x, 1, q.z, q.R > 6 ? 40 : 12, 0xffb21e, 13, 0.5, 0.8); if (q.R > 6) addShake(0.8); } }
+  for (let i = SQ.length - 1; i >= 0; i--) { const q = SQ[i]; q.t -= dt; if (q.t <= 0) { SQ.splice(i, 1); explode(q.x, q.z, q.R, q.d); flash(q.x, q.z, q.R, 0xffd08a); burst(q.x, 1, q.z, q.R > 6 ? 30 : 10, 0xffb21e, 13, 0.42, 0.8, 1, 0.7); if (q.R > 6) { addShake(0.8); fxShock(q.x, q.z, q.R, 0x8fe3ff); } } }
   for (let i = boomQ.length - 1; i >= 0; i--) { const q = boomQ[i]; q.t -= dt; if (q.t <= 0) { boomQ.splice(i, 1); explode(q.x, q.z, 5, 70); } }
+  for (let i = VQ.length - 1; i >= 0; i--) { const q = VQ[i]; q.t -= dt; if (q.t <= 0) { VQ.splice(i, 1); fxExplode(q.x, q.z, q.R); if (q.quiet) { burst(q.x, 1, q.z, 4, 0x4a4d5c, 8, 0.22, 0.7, 1.2, 0.7); continue; } burst(q.x, 1, q.z, 8, 0x4a4d5c, 10, 0.32, 0.9, 1.3, 0.7); addShake(q.R > 4 ? 0.7 : 0.25); sfx.boom(q.R > 4); if (q.R > 4) ring(q.x, q.z, 9); } }
+  for (let i = WK.length - 1; i >= 0; i--) { const w = WK[i], L = w.big ? WKL[1] : WKL[0]; w.t += dt; if (w.t > L) { WK.splice(i, 1); continue; } if (w.pop && w.vy !== 0) { w.vy -= 22 * dt; w.tx += w.vx * dt; w.tz += w.vz * dt; w.ty += w.vy * dt; w.ta += dt * 7; if (w.ty <= w.land && w.vy < 0) { w.ty = w.land; w.vy = 0; } } if ((w.st -= dt) <= 0 && w.t < L - 1.1) { w.st = w.big ? 0.1 : 0.17; fxWreck(w.x, w.z, w.t, w.big); } }
   for (let i = H.length - 1; i >= 0; i--) { // 着弾
     const h = H[i]; h.t += dt; if (h.t < h.T) continue; H.splice(i, 1);
     fxExplode(h.x, h.z, h.r); ring(h.x, h.z, h.r * 1.4, 0xff5b6b); sfx.boom(false); addShake(0.15);
@@ -513,9 +534,14 @@ export function draw(time) {
   const blink = G.inv > 0 && ((time * 14) | 0) % 2 === 0; if (!P.dead) tank.g.visible = !blink;
   drone.visible = S.gear === 'drone' && !P.dead; if (drone.visible) { drone.position.set(P.x + Math.cos(P.da) * 2.3, 2.3 + Math.sin(time * 4) * 0.12, P.z + Math.sin(P.da) * 2.3); drone.rotation.y = time * 9; }
   shield.visible = S.gear === 'shield' && !P.dead && P.sh <= 0; if (shield.visible) { shield.position.x = P.x; shield.position.z = P.z; shield.rotation.z = time * 1.5; }
-  for (const it of instE) it.begin();
-  for (const e of E) { const s = Math.min(1, e.born * 3.5) * (e.hitT > 0 ? 1.12 : 1), c = e.hitT > 0 ? 2.6 : 1; instE[e.k].put(e.x, 0, e.z, e.ry, s, s, c, c, c); }
-  for (const it of instE) it.end();
+  for (const it of instE) it.begin(); for (const it of instT) it.begin();
+  for (const e of E) { const fall = e.drop > 0, s = fall ? 1 : Math.min(1, e.born * 3.5) * (e.hitT > 0 ? 1.12 : 1), c = e.hitT > 0 ? 2.6 : 1, y = fall ? (e.drop / DROP) ** 2 * 34 : 0; instE[e.k].put(e.x, y, e.z, e.ry, s, s, c, c, c); instT[e.k].put(e.x, y, e.z, e.ta ?? e.ry, s, s, c, c, c); }
+  for (const w of WK) { // 残骸: 赤熱から黒く冷え、最後は地面に沈む
+    if (w.k < 0) continue; // 自機の残骸は自機のモデルを焦がして使う
+    const L = w.big ? WKL[1] : WKL[0], f = clamp((w.t - L + 1.1) / 1.1, 0, 1), h = clamp(1 - w.t / 1.2, 0, 1), y = -f * f * (w.big ? 2.4 : 1.2), r = 0.09 + 2.4 * h * h, g = 0.085 + 0.7 * h * h, b = 0.085;
+    instE[w.k].put(w.x, y, w.z, w.ry, 1, 0.8, r, g, b); instT[w.k].put(w.x + w.tx, y + w.ty - (w.pop ? 0 : 0.12 * ESC[w.k]), w.z + w.tz, w.ta, 1, 0.85, r, g, b);
+  }
+  for (const it of instE) it.end(); for (const it of instT) it.end();
   for (const it of instB) it.begin();
   for (const b of W.blocks) { if (b.hp <= 0) continue; const s = b.hitT > 0 ? 0.9 : 1, c = 0.6 + 0.4 * (b.hp / b.max), tl = b.t === W.CRATE ? TH.tc : b.t === W.WALL ? TH.tw : null, tn = tl ? tl[(b.v * tl.length) | 0] : null; instB[b.t].put(b.x, 0, b.z, b.ry, s, (b.hitT > 0 ? 1.08 : 1) * b.sy, tn ? c * tn[0] : c, tn ? c * tn[1] : c, tn ? c * tn[2] : c); }
   for (const it of instB) it.end();
