@@ -1,11 +1,13 @@
-// 計測の集計ページ（/stats）。?days=7 で期間を変えられる。環境変数 STATS_KEY を入れると ?k=… が必要になる
+// 計測の集計ページ（/stats）。?days=7 で期間を変えられる。?from=2026-11-18（日本時間）でその日より前を数えない（環境変数 STATS_FROM で既定にもできる）。環境変数 STATS_KEY を入れると ?k=… が必要になる
 const FUNNEL = [['load', 'ロード完了'], ['move', '最初の移動'], ['kill', '最初の撃破'], ['lvl', '最初のレベルアップ'], ['t60', '1分プレイ'], ['end', '1回目の出撃が終わる'], ['again', 'もう一度出撃'], ['t180', '3分プレイ'], ['win', '拠点を奪還'], ['t600', '10分プレイ']];
 const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const pct = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '—';
 export async function onRequestGet({ request, env }) {
   const u = new URL(request.url);
   if (env.STATS_KEY && u.searchParams.get('k') !== env.STATS_KEY) return new Response('forbidden', { status: 403 });
-  const days = Math.max(1, Math.min(90, +u.searchParams.get('days') || 7)), since = Date.now() - days * 86400000;
+  const fromS = u.searchParams.get('from') || env.STATS_FROM || '', fromTs = /^\d{4}-\d{2}-\d{2}$/.test(fromS) ? Date.parse(fromS + 'T00:00:00+09:00') || 0 : 0;
+  const daysP = u.searchParams.get('days'), days = Math.max(1, Math.min(90, +daysP || (fromTs ? 90 : 7))), since = Math.max(Date.now() - days * 86400000, fromTs);
+  const link = d => `?days=${d}${u.searchParams.get('from') ? '&from=' + esc(fromS) : ''}${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}`;
   const q = async (sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results || [];
   const [fun, load, runs, ends, ret, parts, idle, by, wel] = await Promise.all([
     q('SELECT n, dev, COUNT(DISTINCT sid) c FROM ev WHERE ts >= ? GROUP BY n, dev', since),
@@ -19,7 +21,7 @@ export async function onRequestGet({ request, env }) {
     q("SELECT dev, COUNT(*) c, SUM(st) s FROM (SELECT sid, dev, MAX(n = 'start') st FROM ev WHERE ts >= ? AND sid IN (SELECT sid FROM ev WHERE ts >= ? AND n = 'welcome') GROUP BY sid, dev) GROUP BY dev", since, since),
   ]);
   const cnt = (n, dev) => (fun.find(r => r.n === n && r.dev === dev) || { c: 0 }).c, DEV = [['d', 'PC'], ['m', 'スマホ']];
-  let h = `<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Scrap Tankers 計測</title><style>body{font:14px/1.5 system-ui,sans-serif;background:#0f1728;color:#e8eefc;margin:0;padding:16px;max-width:860px;margin:auto}h1{font-size:20px}h2{font-size:15px;margin:22px 0 6px;color:#ffc83a}table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1px solid #26365c;text-align:right}td:first-child,th:first-child{text-align:left}th{color:#a9b6d6;font-weight:600}small,p{color:#a9b6d6}a{color:#49b8ff}.bad{color:#ff8b96}.ok{color:#5fe08a}</style><h1>Scrap Tankers 計測（直近 ${days} 日）</h1><p>期間: <a href="?days=1${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}">1日</a> / <a href="?days=7${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}">7日</a> / <a href="?days=30${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}">30日</a>　数はセッション（1回の訪問）単位です。</p>`;
+  let h = `<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Scrap Tankers 計測</title><style>body{font:14px/1.5 system-ui,sans-serif;background:#0f1728;color:#e8eefc;margin:0;padding:16px;max-width:860px;margin:auto}h1{font-size:20px}h2{font-size:15px;margin:22px 0 6px;color:#ffc83a}table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1px solid #26365c;text-align:right}td:first-child,th:first-child{text-align:left}th{color:#a9b6d6;font-weight:600}small,p{color:#a9b6d6}a{color:#49b8ff}.bad{color:#ff8b96}.ok{color:#5fe08a}</style><h1>Scrap Tankers 計測（${fromTs ? esc(fromS) + ' 以降' + (daysP ? '、直近 ' + days + ' 日' : '') : '直近 ' + days + ' 日'}）</h1><p>期間: <a href="${link(1)}">1日</a> / <a href="${link(7)}">7日</a> / <a href="${link(30)}">30日</a>　数はセッション（1回の訪問）単位です。</p>`;
   h += '<h2>到達率（ロード完了を100%として）</h2><table><tr><th>段階</th>' + DEV.map(d => `<th>${d[1]}</th><th>率</th>`).join('') + '</tr>';
   for (const [n, ja] of FUNNEL) h += `<tr><td>${ja}</td>` + DEV.map(([dv]) => { const c = cnt(n, dv), b = cnt('load', dv), p = b ? c / b : 0; return `<td>${c}</td><td class="${n === 't60' ? (p >= 0.7 ? 'ok' : 'bad') : ''}">${pct(c, b)}</td>`; }).join('') + '</tr>';
   h += '</table><small>目標: 1分プレイ 70% 以上（CrazyGames のコンバージョンに相当）</small>';
