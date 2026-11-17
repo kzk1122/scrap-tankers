@@ -1,6 +1,6 @@
 // 効果音はすべて WebAudio で合成。種類ごとに鳴らす間隔を制限して同時発音を抑える
 import { save, persist } from './core.js';
-let ac = null, master = null, nbuf = null, mg = null, held = false; // held: 一時停止中やタブを離れている間は鳴らさない
+let ac = null, master = null, nbuf = null, bbuf = null, verb = null, clip = null, mg = null, held = false; // held: 一時停止中やタブを離れている間は鳴らさない
 const last = {};
 export function audioInit() {
   if (ac) { if (ac.state !== 'running' && !held) ac.resume().catch(() => {}); return; }
@@ -11,6 +11,11 @@ export function audioInit() {
     mg = ac.createGain(); mg.gain.value = 0.34; mg.connect(master); setInterval(sched, 30);
     nbuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // 爆発用: 低音の多いブラウンノイズ、軽い歪み、屋外の残響（減衰するノイズを畳み込む）
+    bbuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); { const b = bbuf.getChannelData(0); let l = 0; for (let i = 0; i < b.length; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; b[i] = l * 3.5; } }
+    clip = ac.createWaveShaper(); { const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; c[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); } clip.curve = c; } clip.connect(master);
+    verb = ac.createConvolver(); { const L = (ac.sampleRate * 1.6) | 0, ir = ac.createBuffer(2, L, ac.sampleRate); for (let ch = 0; ch < 2; ch++) { const r = ir.getChannelData(ch); for (let i = 0; i < L; i++) r[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / L, 4); } verb.buffer = ir; }
+    const vg = ac.createGain(); vg.gain.value = 0.22; verb.connect(vg); vg.connect(master);
   } catch (e) { ac = null; }
 }
 let forced = false; // 出し先（CrazyGames）の消音設定。ゲーム内の音ボタンより優先
@@ -37,11 +42,31 @@ function noise(dur, vol, f0, f1) {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
+// 爆発音の部品: 帯域を絞ったノイズを、短い立ち上がりと指数的な減衰で鳴らす。out: 出し先（歪み・残響）
+function nz(buf, at, dur, vol, type, f0, f1, atk, outs) {
+  const t = ac.currentTime + at, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = buf; s.loop = true; f.type = type; f.Q.value = 0.7; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + atk); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+  s.connect(f); f.connect(g); for (const o of outs) g.connect(o); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
+}
+// 実際の爆発に近い音: 破裂の「バッ」、歪んだ低い轟音、胸に来る低い衝撃、尾を引く地鳴り、飛び散る破片のパラパラ、屋外の残響。毎回少しずつ変える
+function blast(big) {
+  const v = 0.85 + Math.random() * 0.3, k = big ? 0.75 : 0.45, L = big ? 1 : 0.65;
+  nz(nbuf, 0, 0.06, 0.5 * k, 'highpass', 1400 * v, 700, 0.002, [master, verb]);
+  nz(bbuf, 0, 1.3 * L, 1.1 * k, 'lowpass', 1100 * v, 90, 0.005, [clip, verb]);
+  nz(nbuf, 0, 0.5 * L, 0.35 * k, 'bandpass', 600 * v, 160, 0.004, [clip]);
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), f0 = (big ? 62 : 74) * v;
+  o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.42, t + 0.3 * L);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.75 * k, t + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t + 0.38 * L);
+  o.connect(g); g.connect(clip); o.start(t); o.stop(t + 0.42 * L);
+  nz(bbuf, 0.03, 2.0 * L, 0.42 * k, 'lowpass', 260, 50, 0.08, [master, verb]);
+  for (let i = 0, n = big ? 6 : 3; i < n; i++) nz(nbuf, 0.08 + Math.random() * 0.5 * L, 0.03 + Math.random() * 0.04, (0.05 + Math.random() * 0.08) * k, 'highpass', 2500 + Math.random() * 2500, 1500, 0.002, [master]);
+}
 export const sfx = {
   shot() { if (ok('shot', 0.05)) { tone('square', 480 + Math.random() * 90, 130, 0.09, 0.1); noise(0.07, 0.14, 2600, 600); } },
   hit() { if (ok('hit', 0.04)) tone('triangle', 330, 110, 0.06, 0.14); },
   crack() { if (ok('crack', 0.05)) noise(0.14, 0.3, 1800, 300); },
-  boom(big) { if (ok('boom', 0.08)) { noise(big ? 0.7 : 0.36, big ? 0.8 : 0.5, big ? 1000 : 1500, 70); tone('sine', big ? 130 : 170, 34, big ? 0.5 : 0.26, 0.55); } },
+  boom(big) { if (ok('boom', big ? 0.08 : 0.1)) blast(big); },
   pick(n) { if (ok('pick', 0.035)) { const f = 660 + Math.min(n, 14) * 55; tone('sine', f, f * 1.5, 0.08, 0.13); } },
   heal() { if (ok('heal', 0.1)) { tone('sine', 520, 780, 0.12, 0.2); tone('sine', 780, 1040, 0.14, 0.18, 0.1); } },
   lvl() { if (ok('lvl', 0.2)) [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.16, 0.22, i * 0.07)); },
