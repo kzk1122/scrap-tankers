@@ -1,6 +1,6 @@
 // 描画: 質感のある光と影、後処理（光のにじみ・色調整）、インスタンス描画、戦車モデル、粒子、草、水。
 // 素材はすべてコードで生成する。重い端末では adapt() が段階的に画質を落とす
-import { THREE, clamp } from './core.js';
+import { THREE, clamp, angLerp } from './core.js';
 import { A, blockAt, inWater } from './world.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -11,7 +11,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 
 export let renderer, scene, camera, light;
 let hemi, outer, fence, ground, gtex, gctx, GS = 1024, composer, bloom, grade, noiseCv, coarse = false;
-let shake = 0, cx = 0, cz = 0;
+let shake = 0, cx = 0, cz = 0, sky = null; const SKYC = new THREE.Color(0x78aee6);
 const R = Math.random, rr = (a, b) => a + R() * (b - a), lerp = (a, b, t) => a + (b - a) * t;
 const SUN = new THREE.Vector3(-0.62, 0.58, -0.53).normalize();
 const U = { t: { value: 0 }, cloud: { value: null }, tank: { value: new THREE.Vector3() } };
@@ -227,6 +227,11 @@ export function initGfx(canvas) {
     { s: [L, 1.4, t], p: [0, 0.7, -A - t / 2], c: w }, { s: [L, 1.4, t], p: [0, 0.7, A + t / 2], c: w },
     { s: [t, 1.4, L], p: [-A - t / 2, 0.7, 0], c: w }, { s: [t, 1.4, L], p: [A + t / 2, 0.7, 0], c: w }]), patch(new THREE.MeshStandardMaterial({ color: 0x56688f, roughness: 0.8 }), { detail: 1 }));
   fence.castShadow = fence.receiveShadow = true; scene.add(fence);
+  // 空（後ろからの視点のときだけ見える）。地平線は霧と同じ色、上へ行くほど青く
+  sky = new THREE.Mesh(new THREE.SphereGeometry(150, 24, 12), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { uH: { value: new THREE.Color() }, uZ: { value: new THREE.Color() } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position,1.); gl_Position = p.xyww; }',
+    fragmentShader: 'uniform vec3 uH, uZ; varying vec3 vP; void main(){ float h = normalize(vP).y; gl_FragColor = vec4(mix(uH, uZ, smoothstep(-0.02, 0.22, h)), 1.); }' }));
+  sky.renderOrder = -1; sky.frustumCulled = false; sky.visible = false; scene.add(sky);
   initFx(); initGrass(); initWater();
   composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.55, 1.1); composer.addPass(bloom); composer.addPass(new OutputPass());
@@ -261,7 +266,7 @@ export const quality = () => q;
 export function resize() {
   const w = window.innerWidth, h = window.innerHeight; if (!w || !h) return; const pr = Math.min(window.devicePixelRatio || 1, QP[q].pr);
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false); composer.setPixelRatio(pr); composer.setSize(w, h); grade.uniforms.uPx.value.set(1 / w, 1 / h);
-  camera.aspect = w / h; camera.fov = camera.aspect >= 1 ? 45 : 55; camera.updateProjectionMatrix();
+  camera.aspect = w / h; camera.fov = view ? (camera.aspect >= 1 ? 56 : 64) : camera.aspect >= 1 ? 45 : 55; camera.updateProjectionMatrix();
 }
 let accT = 0, accN = 0, good = 0;
 export function adapt(ms) {
@@ -273,7 +278,7 @@ export function adapt(ms) {
 
 // ---------- テーマ（拠点の種類）の色・光・地面の絵 ----------
 export function applyTheme(th, feat) {
-  scene.background.set(th.bg); scene.fog.color.set(th.bg); outer.material.color.set(th.outer); fence.material.color.set(th.fence);
+  scene.background.set(th.bg); scene.fog.color.set(th.bg); sky.material.uniforms.uH.value.set(th.bg); sky.material.uniforms.uZ.value.set(th.bg).lerp(SKYC, 0.6); outer.material.color.set(th.outer); fence.material.color.set(th.fence);
   hemi.color.set(th.sky); hemi.groundColor.set(th.gnd); hemi.intensity = th.hemiI * 0.5; light.color.set(th.sun); light.intensity = th.sunI * 1.2;
   const g = gctx, S = GS, u = S / (2 * A), X = x => (x + A) * u;
   let sd = (th.i * 7919 + 13) >>> 0; const r = () => { sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0; return sd / 4294967296; };
@@ -293,16 +298,30 @@ let intro = 0; const INTRO = 1.8;
 let pose = null; export function camPose(o) { pose = o || null; } // 掲載画像の撮影用: カメラの位置と注視点を固定する
 export function camIntro(on = true) { intro = on ? INTRO : 0; }
 export function addShake(a) { shake = Math.min(1.2, shake + a); }
-export function camUpdate(px, pz, dt, snap, stiff = 7) {
+// 視点: 0 見下ろし（いつもの）/ 1 戦車の後ろから。後ろからのカメラは車体の向き（cyaw）をゆっくり追う
+let view = 0, cyaw = Math.PI;
+export function setView(v) {
+  view = v ? 1 : 0; if (!camera) return; resize();
+  sky.visible = !!view; scene.fog.near = view ? 45 : 75; scene.fog.far = view ? 150 : 170; // 後ろからは遠くまで見えるので、遠くを霞ませて空につなぐ
+}
+export const camYaw = () => view ? cyaw : null; // 入力をカメラの向きに合わせるのに使う（見下ろしでは null）
+export function camUpdate(px, pz, dt, snap, stiff = 7, ry = Math.PI) {
+  if (view) stiff = Math.max(stiff, 16); // 後ろからは近いので、戦車が画面の中で揺れないようにしっかり追う
   const k = snap ? 1 : 1 - Math.exp(-stiff * dt); cx += (px - cx) * k; cz += (pz - cz) * k;
+  cyaw = snap ? ry : angLerp(cyaw, ry, 1 - Math.exp(-2.6 * dt));
   const H = camera.aspect >= 1 ? 27 : 40; shake *= Math.exp(-9 * dt);
   const sx = (R() - 0.5) * shake, sz = (R() - 0.5) * shake;
-  if (pose) { camera.position.set(...pose.p); camera.lookAt(...pose.t); } else if (intro > 0) { // 出撃: 戦車の斜め後ろの低い位置から、いつもの見下ろしの位置まで回り込みながら上がる
+  const port = camera.aspect < 1, cd = port ? 10.5 : 9.5, ch = port ? 9 : 7, cf = port ? 7 : 6.5, fx = Math.sin(cyaw), fz = Math.cos(cyaw); // 後ろからの視点: 戦車の cd 後ろ、高さ ch から、cf 前を見る
+  const D1 = view ? Math.hypot(ch, cd) : Math.hypot(H, H * 0.52), EL1 = view ? Math.atan2(ch, cd) : Math.atan2(H, H * 0.52), AZ1 = view ? cyaw + Math.PI : 0;
+  const lx = view ? cx + fx * cf : cx, ly = view ? 0.6 : 0, lz = view ? cz + fz * cf : cz - 1;
+  if (pose) { camera.position.set(...pose.p); camera.lookAt(...pose.t); } else if (intro > 0) { // 出撃: 戦車の斜め後ろの低い位置から、いつもの視点の位置まで回り込みながら上がる
     intro = Math.max(0, intro - dt); const f = 1 - intro / INTRO, e = f < 0.5 ? 4 * f * f * f : 1 - Math.pow(2 - 2 * f, 3) / 2;
-    const d = lerp(H * 0.36, Math.hypot(H, H * 0.52), e), el = lerp(0.36, Math.atan2(H, H * 0.52), e), az = lerp(2.5, 0, e);
-    camera.position.set(cx + Math.sin(az) * Math.cos(el) * d + sx, Math.sin(el) * d, cz + Math.cos(az) * Math.cos(el) * d + sz); camera.lookAt(cx + sx, lerp(1.1, 0, e), cz + lerp(0, -1, e) + sz);
-  } else { camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz); }
-  const tx = Math.round(cx), tz = Math.round(cz); light.position.set(tx + SUN.x * 70, SUN.y * 70, tz + SUN.z * 70); light.target.position.set(tx, 0, tz); light.target.updateMatrixWorld();
+    const d = lerp(H * 0.36, D1, e), el = lerp(0.36, EL1, e), az = lerp(2.5, 0, e) + AZ1;
+    camera.position.set(cx + Math.sin(az) * Math.cos(el) * d + sx, Math.sin(el) * d, cz + Math.cos(az) * Math.cos(el) * d + sz); camera.lookAt(lerp(cx, lx, e) + sx, lerp(1.1, ly, e), lerp(cz, lz, e) + sz);
+  } else if (view) { camera.position.set(cx - fx * cd + sx, ch, cz - fz * cd + sz); camera.lookAt(lx + sx, ly, lz + sz); }
+  else { camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz); }
+  if (view) sky.position.copy(camera.position);
+  const tx = Math.round(view ? cx + fx * 12 : cx), tz = Math.round(view ? cz + fz * 12 : cz); light.position.set(tx + SUN.x * 70, SUN.y * 70, tz + SUN.z * 70); light.target.position.set(tx, 0, tz); light.target.updateMatrixWorld(); // 影は見えている所を中心に
   U.tank.value.set(px, tankK, pz);
 }
 export function render() { grade.uniforms.uT.value = U.t.value % 10; composer.render(); }

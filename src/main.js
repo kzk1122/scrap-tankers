@@ -1,7 +1,7 @@
 // 起動とメインループ、テスト用の入口
 import { diag, seed, save, setDayOff, missing, TARGET } from './core.js';
 import * as MT from './meta.js';
-import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality, camPose } from './gfx.js';
+import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality, camPose, camYaw, setView, camIntro } from './gfx.js';
 import { initInput, pollInput, setLock, relock, I } from './input.js';
 import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
@@ -13,9 +13,10 @@ const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
   if (G.paused) { I.sp = false; if (doRender && ++pzF % 10 === 0) render(); return; } // 一時停止中はたまに描き直すだけ（画面サイズの変更に追従）
   if (G.slowT > 0) { G.slowT -= dt; dt *= 0.3; } // ボスを倒した瞬間などは少しのあいだスローモーション
-  T.time += dt; setLock(G.state === 'play'); pollInput(camera); update(dt);
+  T.time += dt; setLock(G.state === 'play'); pollInput(camera, camYaw()); update(dt);
+  camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 28, P.ry); // カメラは描かないフレームでも進める（後ろからの視点では入力の向きがカメラの向きに依る）
   if (!doRender) return;
-  updParticles(dt); updRings(dt); draw(T.time); camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 28); render();
+  updParticles(dt); updRings(dt); draw(T.time); render();
 }
 let last = 0, shown = false;
 // ---- 一時停止: 画面の外をクリック、タブ切り替え、Esc、P、右上のボタン。再開はクリック・タップか Enter / Space / P ----
@@ -51,7 +52,7 @@ async function boot() {
       if (G.paused) { if (k === 'Enter' || k === ' ' || k === 'p' || k === 'P') { e.preventDefault(); e.stopImmediatePropagation(); resume(); } }
       else if (k === 'Escape' || k === 'p' || k === 'P') pause();
     });
-    initGfx(document.getElementById('c')); initUi(); initGame(); initInput(audioInit, autoPause);
+    initGfx(document.getElementById('c')); setView(save.view); initUi(); initGame(); initInput(audioInit, autoPause);
     document.getElementById('pz').addEventListener('click', e => { e.stopPropagation(); pause(); });
     window.addEventListener('blur', autoPause);
     welcomeOrStart();
@@ -65,7 +66,7 @@ async function boot() {
 // ボットと確認用: 仮想時計で1フレームずつ進める
 window.__tk = {
   manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, miss: missing, boss: toBoss, pick: pickUp, restart: startRun, save,
-  tune: TUNE, G, boom: explode, spawn: spawnAt, cam: camPose, input(o) { I.ext = o; }, pause, resume() { pzAt = 0; resume(); },
+  tune: TUNE, G, boom: explode, spawn: spawnAt, cam: camPose, view(v) { save.view = v ? 1 : 0; setView(v); }, intro: camIntro, snap() { camUpdate(P.x, P.z, 0, true, 7, P.ry); }, get camera() { return camera; }, I, input(o) { I.ext = o; }, pause, resume() { pzAt = 0; resume(); },
   step(n = 1, dt = 1 / 60, doRender = false) { for (let i = 0; i < n; i++) tick(dt, doRender && i === n - 1); return G.state; },
   go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },
 };
