@@ -7,7 +7,7 @@ import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
 import * as MX from './metrics.js';
 import { initUi, showPause, showWelcome } from './ui.js';
-import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, explode, spawnAt, G, P, TUNE } from './game.js';
+import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, explode, spawnAt, retreat, G, P, TUNE } from './game.js';
 
 const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
@@ -24,12 +24,15 @@ let pzAt = 0, pzF = 0;
 function pause() {
   if (G.paused || G.state !== 'play') return;
   G.paused = true; G.pzN++; pzAt = performance.now(); I.sp = false;
-  setLock(false); audioPause(true); platform.gameplayStop(); showPause(true, I.touch, resume);
+  setLock(false); audioPause(true); platform.gameplayStop(); showPause(true, I.touch, resume, goHome);
 }
 function resume() {
   if (!G.paused || performance.now() - pzAt < 250) return; // 止めた操作がそのまま再開にならないように
   G.paused = false; I.sp = false; showPause(false); audioPause(document.hidden); platform.gameplayStart(); last = performance.now();
   relock();
+}
+function goHome() { // 一時停止の画面の「基地に戻る」
+  if (!G.paused) return; G.paused = false; I.sp = false; showPause(false); audioPause(document.hidden); retreat();
 }
 const autoPause = () => { if (!T.manual && !I.ext) pause(); }; // 自動テストのボットは止めない
 function frame(now) {
@@ -68,6 +71,6 @@ window.__tk = {
   manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, miss: missing, boss: toBoss, pick: pickUp, restart: startRun, save,
   tune: TUNE, G, boom: explode, spawn: spawnAt, cam: camPose, view(v) { save.view = v ? 1 : 0; setView(v); }, intro: camIntro, snap() { camUpdate(P.x, P.z, 0, true, 7, P.ry); }, get camera() { return camera; }, I, input(o) { I.ext = o; }, pause, resume() { pzAt = 0; resume(); },
   step(n = 1, dt = 1 / 60, doRender = false) { for (let i = 0; i < n; i++) tick(dt, doRender && i === n - 1); return G.state; },
-  go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },
+  home() { pzAt = 0; goHome(); }, go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },
 };
 boot();

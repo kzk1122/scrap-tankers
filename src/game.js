@@ -163,7 +163,7 @@ export function startRun(hold) {
   E.length = B.length = K.length = M.length = boomQ.length = H.length = LN.length = SQ.length = WK.length = VQ.length = 0; setWarn(H, LN);
   if (save.runs >= 1) MT.loginTick(); const sup = MT.supplyTick(); buildTank();
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: hold ? 'hold' : 'play', slowT: 0, t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, xpD: Math.sqrt(1 + 0.12 * (save.stage - 1)), stage: save.stage, won: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
+  Object.assign(G, { state: hold ? 'hold' : 'play', slowT: 0, t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, xpD: Math.sqrt(1 + 0.12 * (save.stage - 1)), stage: save.stage, won: false, home: false, dng: 0, dustT: 0, intro: false, first: save.runs === 0 });
   G.as = save.lose && save.lose.s === save.stage ? Math.min(TUNE.asMax, save.lose.n) : 0; // 続けて負けた回数
   music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false, sh: 0, da: 0, dcd: 1 });
@@ -347,13 +347,15 @@ export function pickUp(i) {
   G.pend--; G.inv = 0.7; sfx.ui(); UI.hideAll(); ring(P.x, P.z, 4, 0x8fe3ff);
   if (G.pend > 0) openLevelUp(); else G.state = 'play';
 }
+// 基地に戻る（一時停止の画面から）: 出撃をやめて結果とガレージへ。集めたスクラップは持ち帰り、やられたわけではないので連敗の数には入れない
+export function retreat() { if (G.state !== 'play') return false; G.home = true; showResult(); return true; } // SDK の gameplayStop は一時停止のときに済んでいる
 function showResult() {
   MT.loginTick(); const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
-  let unl = []; bank(); save.lose = G.won ? null : { s: G.stage, n: (save.lose && save.lose.s === G.stage ? save.lose.n : 0) + 1 }; if (G.won) { save.stage++; if (save.stage > save.best) { save.best = save.stage; unl = MT.unlockedAt(save.best); } } persist();
+  let unl = []; bank(); save.lose = G.won ? null : G.home ? save.lose : { s: G.stage, n: (save.lose && save.lose.s === G.stage ? save.lose.n : 0) + 1 }; if (G.won) { save.stage++; if (save.stage > save.best) { save.best = save.stage; unl = MT.unlockedAt(save.best); } } persist();
   G.state = 'result';
-  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, sp: G.spN, pz: G.pzN, as: G.as, won: G.won ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
+  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, sp: G.spN, pz: G.pzN, as: G.as, won: G.won ? 1 : 0, home: G.home ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
   music('calm'); musicVol(0.45);
-  const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next, unlocked: unl }, { buy: buyGar, go: startRun }); G.arrived = null;
+  const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, home: G.home, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next, unlocked: unl }, { buy: buyGar, go: startRun }); G.arrived = null;
 }
 function buyGar(k) {
   const lv = save.up[k], c = garCost(lv); if (lv >= GAR_MAX || save.scrap < c) return false;

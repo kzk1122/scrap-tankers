@@ -61,8 +61,11 @@ export function legend(show, lock) {
 }
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; $('wel').hidden = true; pickCb = null; resH = null; }
 // 一時停止の画面。画面のどこをクリック（タップ）しても再開する
-export function showPause(on, touch, resume) {
+export function showPause(on, touch, resume, home) {
   const o = $('pause'); if (!on) { o.hidden = true; return; }
+  const hb = $('pzhome'); let ask = false; // 基地に戻る: 押し間違いで出撃が終わらないよう、2回押して戻る
+  hb.textContent = jaEn('基地に戻る', 'Return to HQ'); hb.classList.remove('ask');
+  hb.onclick = e => { e.stopPropagation(); if (!ask) { ask = true; hb.textContent = jaEn('もう一度押すと基地に戻ります', 'Press again to return to HQ'); hb.classList.add('ask'); sfx.ui(); return; } home(); };
   $('pzt').textContent = jaEn('一時停止', 'PAUSED');
   $('pzs').textContent = touch ? jaEn('画面をタップすると再開します', 'Tap to resume') : jaEn('クリックか Enter で再開', 'Click or press Enter to resume');
   $('resume').textContent = jaEn('再開する', 'Resume'); pzMute(); o.onclick = resume; o.hidden = false;
@@ -85,14 +88,14 @@ export function showLevelUp(ch, lvl, cb) {
 export function showResult(d, h) {
   resH = h; openAt = performance.now();
   const s = d.t | 0, tm = ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0');
-  $('rtitle').textContent = d.win ? jaEn('拠点を奪還！', 'Base reclaimed!') : jaEn('撃破された…', 'Tank destroyed');
-  $('rtitle').className = 'rtitle ' + (d.win ? 'win' : 'lose');
+  $('rtitle').textContent = d.win ? jaEn('拠点を奪還！', 'Base reclaimed!') : d.home ? jaEn('基地に戻った', 'Back at HQ') : jaEn('撃破された…', 'Tank destroyed');
+  $('rtitle').className = 'rtitle ' + (d.win ? 'win' : d.home ? 'home' : 'lose');
   $('rsub').textContent = jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + (d.boss ? 'BOSS' : 'WAVE ' + d.wave + ' / ' + NWAVE);
   $('stats').innerHTML = [[jaEn('時間', 'Time'), tm], [jaEn('撃破', 'Kills'), d.kills], [jaEn('レベル', 'Level'), d.lvl]].map(a => `<div><small>${a[0]}</small><b>${a[1]}</b></div>`).join('');
   $('earn').innerHTML = `+${d.earned} ${NUT} ` + jaEn('スクラップを持ち帰った', 'scrap brought home');
   drawMap(d);
   const sp = d.arrived ? supArrived(d.arrived) : d.supply ? supNext(d.supply) : '';
-  $('supply').hidden = !sp; $('supply').innerHTML = sp; tab = 'up';
+  $('supply').hidden = !sp; $('supply').innerHTML = sp; tab = d.home ? 'parts' : 'up'; // 基地に戻ったのはパーツを付け替えたいときが多いので、パーツの欄を開く
   $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); ev('again', { s: Math.round((performance.now() - openAt) / 1000) }); resH.go(); } };
   if (TARGET === 'artifact') debugStage(d.win);

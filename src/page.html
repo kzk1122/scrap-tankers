@@ -72,7 +72,8 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
 .card .clv{font-size:12px;color:var(--c)}
 .card .key{position:absolute;top:8px;left:10px;font-size:12px;color:var(--dim)}
 .panel{width:min(460px,100%);background:var(--panel);border:3px solid var(--line);border-radius:22px;padding:18px 16px;display:flex;flex-direction:column;gap:10px;align-items:stretch;text-align:center}
-.rtitle{font-size:clamp(24px,6vw,34px);letter-spacing:.03em}.rtitle.win{color:var(--gold)}.rtitle.lose{color:var(--bad)}
+.rtitle{font-size:clamp(24px,6vw,34px);letter-spacing:.03em}.rtitle.win{color:var(--gold)}.rtitle.lose{color:var(--bad)}.rtitle.home{color:var(--ink)}
+#pzhome.ask{color:var(--gold);border-color:var(--gold)}
 #rsub{font-size:13px;color:var(--dim)}
 .ov>:first-child{margin-top:auto}.ov>:last-child{margin-bottom:auto} /* 中央寄せだが、はみ出したら上から読める */
 .rcol{display:flex;flex-direction:column;gap:inherit;min-width:0}
@@ -167,7 +168,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
       <div class="rcol"><div id="weldm"></div><div id="welnx"></div><button id="welgo" class="big"></button></div>
     </div>
   </div>
-  <div id="pause" class="ov" hidden><div class="panel"><div class="ovt" id="pzt"></div><div class="ovs" id="pzs"></div><button id="resume" class="big"></button><button id="pzmute" class="sub"></button></div></div>
+  <div id="pause" class="ov" hidden><div class="panel"><div class="ovt" id="pzt"></div><div class="ovs" id="pzs"></div><button id="resume" class="big"></button><button id="pzmute" class="sub"></button><button id="pzhome" class="sub"></button></div></div>
   <pre id="diag" hidden></pre>
 </div>
 <!--JS-->
