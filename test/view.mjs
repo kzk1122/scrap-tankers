@@ -20,18 +20,24 @@ const cam = () => p.evaluate(() => { const T = window.__tk, c = T.camera; return
 await p.evaluate(() => { const T = window.__tk; T.manual(true); T.input(null); T.restart(); T.intro(false); T.P.ry = Math.PI / 2; T.snap(); T.step(1, 1 / 60, true); });
 let c = await cam(); ok(c.x < -6 && Math.abs(c.z) < 1 && c.y > 4 && c.y < 12, `behind view: camera sits behind the tank (${c.x.toFixed(1)}, ${c.y.toFixed(1)}, ${c.z.toFixed(1)})`);
 // キーを押している間の入力の向き（地面の上の向き）と、離したあとの戦車の向きを見る
-const hold = (key, n) => p.evaluate(([key, n]) => { const T = window.__tk; window.dispatchEvent(new KeyboardEvent('keydown', { key })); const out = []; for (let i = 0; i < n; i++) { T.step(1, 1 / 60, i % 6 === 0); if (i % 30 === 0) out.push([T.I.mx, T.I.mz]); } window.dispatchEvent(new KeyboardEvent('keyup', { key })); T.step(1, 1 / 60, false); return { v: out, ry: T.P.ry }; }, [key, n]);
+const hold = (key, n) => p.evaluate(([key, n]) => { const T = window.__tk; window.dispatchEvent(new KeyboardEvent('keydown', { key })); const out = []; for (let i = 0; i < n; i++) { T.step(1, 1 / 60, false); if (i % 30 === 0) out.push([T.I.mx, T.I.mz]); } window.dispatchEvent(new KeyboardEvent('keyup', { key })); T.step(1, 1 / 60, false); return { v: out, ry: T.P.ry }; }, [key, n]);
 const near = (v, x, z) => Math.abs(v[0] - x) < 0.05 && Math.abs(v[1] - z) < 0.05, f2 = v => v.map(a => a.toFixed(2)).join(',');
 let h = await hold('w', 40); ok(near(h.v[0], 1, 0) && near(h.v[1], 1, 0), 'W drives toward where the camera looks (east): ' + f2(h.v[1]));
 await p.evaluate(() => { const T = window.__tk; T.P.ry = Math.PI / 2; T.snap(); });
 h = await hold('d', 150); ok(h.v.every(v => near(v, 0, 1)), 'holding D keeps one direction (south = camera right) while the camera turns: ' + h.v.map(f2).join(' / '));
-const yaw = await p.evaluate(() => { const T = window.__tk; T.input({ mx: 0, mz: 1 }); for (let i = 0; i < 90; i++) T.step(1, 1 / 60, true); T.input(null); T.step(1, 1 / 60, false); const c = T.camera; return Math.atan2(T.P.x - c.position.x, T.P.z - c.position.z); });
+const yaw = await p.evaluate(() => { const T = window.__tk; T.input({ mx: 0, mz: 1 }); for (let i = 0; i < 90; i++) T.step(1, 1 / 60, false); T.input(null); T.step(1, 1 / 60, false); const c = T.camera; return Math.atan2(T.P.x - c.position.x, T.P.z - c.position.z); });
 ok(Math.abs(yaw) < 0.35, `camera swings round behind the new heading (looks ${yaw.toFixed(2)} rad, south is 0)`);
 h = await hold('w', 10); ok(near(h.v[0], 0, 1), 'after letting go, W follows the new camera direction (south): ' + f2(h.v[0]));
 // 見下ろしに戻すと、W はいつも画面の上（北）
 await p.evaluate(() => document.getElementById('view').click()); await p.evaluate(() => { const T = window.__tk; T.P.ry = Math.PI / 2; T.snap(); T.step(1, 1 / 60, true); });
 h = await hold('w', 10); ok(near(h.v[0], 0, -1), 'top-down: W drives north as before: ' + f2(h.v[0]));
 c = await cam(); ok(c.y > 20 && c.z > 10, 'top-down camera is back overhead');
+// 出撃の回り込みと、掲載画像用のカメラ固定が見下ろしでも効く（視点の分岐で上書きされない）
+r = await p.evaluate(() => { const T = window.__tk, c = T.camera; T.restart(); T.step(1, 1 / 60, true); const a = c.position.y; T.intro(false); T.cam({ p: [1, 2, 3], t: [0, 0, 0] }); T.step(1, 1 / 60, true); const b = [c.position.x, c.position.y, c.position.z]; T.cam(null); return [a, b]; });
+ok(r[0] < 12 && r[1].join() === '1,2,3', `top-down: deploy swoop starts low (y ${r[0].toFixed(1)}) and a fixed camera pose holds (${r[1].join(',')})`);
+await p.evaluate(() => { const T = window.__tk; T.view(1); T.restart(); T.step(1, 1 / 60, true); });
+r = await p.evaluate(() => window.__tk.camera.position.y); ok(r < 6, `behind view: deploy swoop starts low too (y ${r.toFixed(1)})`);
+await p.evaluate(() => { const T = window.__tk; T.intro(false); T.view(0); });
 // 再読み込みしても選んだ視点のまま
 await p.evaluate(() => document.getElementById('view').click()); await p.reload(); await p.waitForTimeout(1200);
 r = await p.evaluate(() => [window.__tk.save.view, document.getElementById('view').classList.contains('on')]); ok(r[0] === 1 && r[1], 'the chosen view is kept after reloading');

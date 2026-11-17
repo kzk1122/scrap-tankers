@@ -44,7 +44,7 @@ function patch(mat, o = {}) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + (o.wind ? `
         vec2 ip = instanceMatrix[3].xz; float ph = ip.x*0.35 + ip.y*0.27; float w = sin(uT*1.7+ph) + 0.5*sin(uT*3.3+ph*1.7);
         float k = aH*aH; transformed.x += w*0.1*k; transformed.z += w*0.06*k;
-        vec2 aw = ip - uTank.xz; float dd = length(aw); float push = smoothstep(2.4,0.6,dd)*aH; transformed.xz += aw/(dd+0.001)*push*0.5; transformed.y -= push*0.3;` : ''))
+        vec2 aw = ip - uTank.xz; float dd = length(aw); float tk = max(uTank.y, 0.5); float push = smoothstep(2.4*tk,0.6*tk,dd)*aH; transformed.xz += aw/(dd+0.001)*push*0.5; transformed.y -= push*0.3;` : ''))
       .replace('#include <project_vertex>', '#include <project_vertex>\n vec4 cwp = vec4(transformed,1.);\n#ifdef USE_INSTANCING\n cwp = instanceMatrix*cwp;\n#endif\n vCW = (modelMatrix*cwp).xyz;');
     sh.fragmentShader = 'uniform float uT; uniform sampler2D uCloud; varying vec3 vCW;\n' + sh.fragmentShader
       .replace('#include <color_fragment>', '#include <color_fragment>\n float cl = texture2D(uCloud, vCW.xz*0.011 + uT*vec2(0.012,0.006)).r; diffuseColor.rgb *= mix(0.66,1.05,smoothstep(0.38,0.6,cl));'
@@ -119,7 +119,7 @@ function tankParts(o = {}) {
   const Y = 1.06, tur = [];
   tur.push(ex([[-0.62, 0.72], [0.62, 0.72], [0.78, 0.2], [0.5, -0.82], [-0.5, -0.82], [-0.78, 0.2]], 0.4, 0.07).rotateX(-Math.PI / 2).translate(0, 0, -0.05));
   tur.push(new THREE.CylinderGeometry(0.27, 0.3, 0.1, n).translate(0.2, 0.5, -0.25)); tur.push(new THREE.BoxGeometry(0.62, 0.36, 0.34).translate(0, 0.2, 0.86));
-  const brl = []; const L = o.long ? 2.1 : o.short ? 0.9 : o.laser ? 2.2 : 1.7, br = o.short ? 2 : o.laser ? 0.65 : 1;
+  const brl = []; const L = o.long ? 2.1 : o.short ? 0.9 : o.laser ? 2.2 : 1.7, br = (o.short ? 2 : o.laser ? 0.65 : 1) * (o.heavy && !o.laser ? (o.short ? 1.1 : 1.25) : 1);
   if (o.armor) { for (const x of [-1.33, 1.33]) steel.push(new THREE.BoxGeometry(0.12, 0.5, 2.3).translate(x, 0.62, 0)); steel.push(new THREE.BoxGeometry(1.5, 0.4, 0.12).translate(0, 0.72, 1.5)); for (const x of [-0.86, 0.86]) tur.push(new THREE.BoxGeometry(0.1, 0.34, 1.1).translate(x, 0.22, -0.1)); }
   for (const bx of o.twin ? [-0.24, 0.24] : [0]) { brl.push(cylZ(0.1 * br, 0.125 * br, L, n, 0.2, 0.95 + L / 2).translate(bx, 0, 0)); brl.push(cylZ(0.15, 0.15, 0.5, n, 0.2, 1.25).translate(bx, 0, 0)); brl.push(cylZ(0.17 * br, 0.17 * br, 0.3, n, 0.2, 0.92 + L).translate(bx, 0, 0)); }
   if (o.laser) for (const z of [1.5, 2.0, 2.5]) brl.push(cylZ(0.16, 0.16, 0.08, n, 0.2, z));
@@ -140,6 +140,12 @@ function tankParts(o = {}) {
     for (const x of [-0.5, 0.5]) tst.push(new THREE.BoxGeometry(0.05, 0.16, 0.34).translate(x, 0.2, -0.94)); // 後ろのかご
     tst.push(new THREE.BoxGeometry(1.05, 0.16, 0.05).translate(0, 0.2, -1.1), new THREE.BoxGeometry(1.0, 0.04, 0.32).translate(0, 0.1, -0.94));
     cv.push(new THREE.CylinderGeometry(0.11, 0.11, 0.8, 8).rotateZ(Math.PI / 2).translate(0, 0.25, -0.92), new RoundedBoxGeometry(0.3, 0.18, 0.22, 1, 0.04).translate(0.62, 0.95, 0.75));
+  }
+  if (o.heavy) { // 重装車体: 3枚に分かれた分厚い側面装甲とボルト、前面の増加装甲、砲塔の頬の装甲、後ろの燃料ドラム
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const z = -1.0 + i * 1.0; paint.push(new RoundedBoxGeometry(0.2, 0.6, 0.94, 1, 0.04).translate(sx * 1.37, 0.62, z)); for (const bz of [-0.3, 0.3]) hst.push(cylX(0.045, 0.06, 6, sx * 1.48, 0.8, z + bz)); }
+    paint.push(new RoundedBoxGeometry(1.7, 0.1, 0.62, 1, 0.03).rotateX(0.65).translate(0, 0.87, 1.3));
+    for (const sx of [-1, 1]) tur.push(new RoundedBoxGeometry(0.26, 0.38, 0.56, 1, 0.04).rotateY(sx * 0.32).translate(sx * 0.56, 0.2, 0.55));
+    for (const sx of [-0.38, 0.38]) steel.push(cylX(0.17, 0.62, 10, sx, 0.55, -1.62));
   }
   if (o.boss) {
     for (const sx of [-1, 1]) { paint.push(new RoundedBoxGeometry(0.42, 0.4, 0.9, 1, 0.06).translate(sx * 1.45, 0.8, 0.45)); hst.push(cylZ(0.07, 0.08, 0.7, 8, 0.85, 1.1).translate(sx * 1.45, 0, 0)); } // 側面の副砲
@@ -165,7 +171,7 @@ export function tankGeo(hex, o = {}) {
 }
 const merged = (list, hex) => mergedC([[list, hex]]);
 const mergedC = sets => { const o = { pos: [], nor: [], col: [] }, c = new THREE.Color(); for (const [list, hex] of sets) { c.set(hex); for (const g of list) pushGeo(o, g, c); } return finish(o); };
-const NC = 26;
+const NC = 26; let tankK = 1;
 // 自機用: 砲塔が回り、履帯が動き、車体が傾くモデル
 export function mkTank(hex, sc = 1, o = {}) {
   const P = tankParts(o), g = new THREE.Group(), tilt = new THREE.Group(), tur = new THREE.Group();
@@ -173,10 +179,11 @@ export function mkTank(hex, sc = 1, o = {}) {
   const body = new THREE.Mesh(mergedC([[P.paint, hex], [P.hst, 0x2b2e33]]), pm), wheels = new THREE.Mesh(merged(P.steel, 0x2b2e33), sm), tm = new THREE.Mesh(mergedC([[P.tur, hex], [P.tst, 0x2b2e33], [P.cv, 0x6f6448]]), pm), brl = new THREE.Mesh(merged(P.brl.concat([new THREE.CylinderGeometry(0.012, 0.012, 1.3, 5).translate(-0.5, 1.05, -0.6)]), 0x2b2e33), sm);
   const cl = new THREE.InstancedMesh(cleatG(), rm, NC * 2); cl.frustumCulled = false;
   for (const m of [body, wheels, tm, brl, cl]) { m.castShadow = true; m.receiveShadow = true; }
-  for (const sx of [-0.45, 0.45]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 1.6) })); l.position.set(sx, 0.78, 1.32); body.add(l); }
+  for (const sx of [-0.45, 0.45]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 1.6) })); if (o.heavy) l.position.set(sx * 2.1, 0.84, 1.45); else l.position.set(sx, 0.78, 1.32); body.add(l); } // 重装車体は前面の増加装甲に隠れるので履帯の上へ
   if (o.laser) { const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.6, 3.2) })); tip.position.set(0, 0.2, 1.1 + P.L); brl.add(tip); }
   tur.position.y = P.Y; tur.add(tm); tur.add(brl); tilt.add(body); tilt.add(tur); g.add(tilt); g.add(wheels); g.add(cl); g.scale.setScalar(sc); scene.add(g);
-  const t = { g, tilt, tur, brl, cl, off: 0, sc }; moveTracks(t, 0); return t;
+  tankK = sc / 0.8; // 標準車体を1とした大きさ（草を押しのける範囲に使う）
+  const t = { g, tilt, tur, brl, cl, off: 0, sc, mz: (1.07 + P.L) * sc }; moveTracks(t, 0); return t; // mz: 砲塔の中心から砲口までの距離
 }
 // 自機が倒されたとき: 焦げて黒くなる（on=false で元の色）
 export function charTank(t, on) { t.g.traverse(m => { const mt = m.material; if (!mt || !mt.color) return; const c0 = mt.userData.c0 || (mt.userData.c0 = mt.color.clone()); mt.color.copy(c0); if (on) mt.color.multiplyScalar(0.1); }); }
@@ -312,10 +319,10 @@ export function camUpdate(px, pz, dt, snap, stiff = 7, ry = Math.PI) {
     const d = lerp(H * 0.36, D1, e), el = lerp(0.36, EL1, e), az = lerp(2.5, 0, e) + AZ1;
     camera.position.set(cx + Math.sin(az) * Math.cos(el) * d + sx, Math.sin(el) * d, cz + Math.cos(az) * Math.cos(el) * d + sz); camera.lookAt(lerp(cx, lx, e) + sx, lerp(1.1, ly, e), lerp(cz, lz, e) + sz);
   } else if (view) { camera.position.set(cx - fx * cd + sx, ch, cz - fz * cd + sz); camera.lookAt(lx + sx, ly, lz + sz); }
-  if (view) sky.position.copy(camera.position);
   else { camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz); }
+  if (view) sky.position.copy(camera.position);
   const tx = Math.round(view ? cx + fx * 12 : cx), tz = Math.round(view ? cz + fz * 12 : cz); light.position.set(tx + SUN.x * 70, SUN.y * 70, tz + SUN.z * 70); light.target.position.set(tx, 0, tz); light.target.updateMatrixWorld(); // 影は見えている所を中心に
-  U.tank.value.set(px, 0, pz);
+  U.tank.value.set(px, tankK, pz);
 }
 export function render() { grade.uniforms.uT.value = U.t.value % 10; composer.render(); }
 

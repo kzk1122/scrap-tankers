@@ -14,8 +14,9 @@ function tick(dt, doRender) {
   if (G.paused) { I.sp = false; if (doRender && ++pzF % 10 === 0) render(); return; } // 一時停止中はたまに描き直すだけ（画面サイズの変更に追従）
   if (G.slowT > 0) { G.slowT -= dt; dt *= 0.3; } // ボスを倒した瞬間などは少しのあいだスローモーション
   T.time += dt; setLock(G.state === 'play'); pollInput(camera, camYaw()); update(dt);
+  camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 28, P.ry); // カメラは描かないフレームでも進める（後ろからの視点では入力の向きがカメラの向きに依る）
   if (!doRender) return;
-  updParticles(dt); updRings(dt); draw(T.time); camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 28, P.ry); render();
+  updParticles(dt); updRings(dt); draw(T.time); render();
 }
 let last = 0, shown = false;
 // ---- 一時停止: 画面の外をクリック、タブ切り替え、Esc、P、右上のボタン。再開はクリック・タップか Enter / Space / P ----
