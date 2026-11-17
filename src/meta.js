@@ -64,7 +64,7 @@ const POOL = [
   { id: 'kills', n: [60, 90, 120], ja: n => `敵を ${n} 体撃破`, en: n => `Destroy ${n} enemies` },
   { id: 'runs', n: [3, 4], ja: n => `${n} 回出撃`, en: n => `Deploy ${n} times` },
   { id: 'win', n: [1, 2], ja: n => `拠点を ${n} つ奪還`, en: n => `Reclaim ${n} base${n > 1 ? 's' : ''}` },
-  { id: 'lvl', n: [8, 10], max: true, ja: n => `1回の出撃で Lv ${n} に到達`, en: n => `Reach Lv ${n} in one run` },
+  { id: 'lvl', n: [6, 8], max: true, ja: n => `1回の出撃で Lv ${n} に到達`, en: n => `Reach Lv ${n} in one run` },
   { id: 'crate', n: [25, 40], ja: n => `障害物を ${n} 個壊す`, en: n => `Break ${n} obstacles` },
   { id: 'scrap', n: [150, 250], ja: n => `スクラップを ${n} 集める`, en: n => `Collect ${n} scrap` },
   { id: 'wave', n: [4, 5], max: true, ja: n => `WAVE ${n} に到達`, en: n => `Reach wave ${n}` },

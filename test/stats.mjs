@@ -14,7 +14,7 @@ ok(db.prepare('SELECT COUNT(*) c FROM ev').get().c === 16, 'rows stored'); ok(ba
 const html = await (await onRequestGet({ request: new Request('http://x/stats?days=7'), env: { DB } })).text();
 const txt = html.replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 ok(/1分プレイ 1 50\.0% 0 0\.0%/.test(txt), 'funnel: t60 PC 1/2, mobile 0/1'); ok(/スマホ 4\.20 秒/.test(txt), 'mobile load 4.20 s');
-ok(/PC 1 1 100\.0%/.test(txt), 'D1: PC 1 of 1 returned'); ok(/拠点 1 ボス 1 1 150 秒/.test(txt) && /twin パーツ購入 1/.test(txt), 'run ends and purchases listed');
+ok(/PC 1 1 100\.0%/.test(txt), 'D1: PC 1 of 1 returned'); ok(/拠点 1 ボス 1 1 150 秒 (\d+\.\d 回|—)/.test(txt) && /twin パーツ購入 1/.test(txt), 'run ends and purchases listed');
 ok(/おかえり」画面: PC 表示 1・そこから出撃 1 ／ スマホ 表示 0・そこから出撃 0/.test(txt), 'welcome screen shown and deployed counted');
 { // ?from= より前は数えない（未来の日付なら全部 0）、環境変数 STATS_FROM でも同じ
   const t = async (url, env = {}) => (await (await onRequestGet({ request: new Request(url), env: { DB, ...env } })).text()).replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');

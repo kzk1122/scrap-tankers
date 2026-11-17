@@ -13,7 +13,7 @@ export async function onRequestGet({ request, env }) {
     q('SELECT n, dev, COUNT(DISTINCT sid) c FROM ev WHERE ts >= ? GROUP BY n, dev', since),
     q("SELECT dev, COUNT(*) c, AVG(json_extract(d,'$.ms')) ms, MAX(json_extract(d,'$.ms')) mx FROM ev WHERE ts >= ? AND n = 'load' GROUP BY dev", since),
     q("SELECT dev, COUNT(*) c, COUNT(DISTINCT sid) s FROM ev WHERE ts >= ? AND n = 'start' GROUP BY dev", since),
-    q("SELECT json_extract(d,'$.stage') st, json_extract(d,'$.wave') wv, SUM(json_extract(d,'$.won')) won, COUNT(*) c, AVG(json_extract(d,'$.s')) s FROM ev WHERE ts >= ? AND n = 'end' GROUP BY st, wv ORDER BY st, wv", since),
+    q("SELECT json_extract(d,'$.stage') st, json_extract(d,'$.wave') wv, SUM(json_extract(d,'$.won')) won, COUNT(*) c, AVG(json_extract(d,'$.s')) s, AVG(json_extract(d,'$.lvl')) lv FROM ev WHERE ts >= ? AND n = 'end' GROUP BY st, wv ORDER BY st, wv", since),
     q('SELECT dev, COUNT(DISTINCT CASE WHEN day = 0 THEN uid END) d0, COUNT(DISTINCT CASE WHEN day = 1 THEN uid END) d1, COUNT(DISTINCT CASE WHEN day >= 2 THEN uid END) d2 FROM ev WHERE ts >= ? GROUP BY dev', since),
     q("SELECT json_extract(d,'$.k') k, n, COUNT(*) c FROM ev WHERE ts >= ? AND n IN ('part','buy','tab') GROUP BY k, n ORDER BY c DESC LIMIT 30", since),
     q("SELECT dev, COUNT(*) c, AVG(mt) s FROM (SELECT sid, dev, MAX(t) mt, SUM(n = 'move') mv FROM ev WHERE ts >= ? GROUP BY sid, dev) WHERE mv = 0 GROUP BY dev", since),
@@ -35,8 +35,8 @@ export async function onRequestGet({ request, env }) {
   for (const [dv, ja] of DEV) { const r = ret.find(x => x.dev === dv) || { d0: 0, d1: 0, d2: 0 }; h += `<tr><td>${ja}</td><td>${r.d0}</td><td>${r.d1}</td><td>${pct(r.d1, r.d0)}</td><td>${r.d2}</td></tr>`; }
   h += '</table><small>目標: D1 12%。端末ごとの匿名IDで数えるため、公開から2日以上たってから意味が出ます</small>';
   h += '<p><small>その日はじめての再訪で出る「おかえり」画面: ' + DEV.map(([dv, ja]) => { const r = wel.find(x => x.dev === dv); return `${ja} 表示 ${r ? r.c : 0}・そこから出撃 ${r ? r.s : 0}`; }).join(' ／ ') + '</small></p>';
-  h += '<h2>出撃が終わった場所</h2><table><tr><th>拠点</th><th>WAVE</th><th>回数</th><th>うち勝ち</th><th>平均時間</th></tr>';
-  for (const r of ends) h += `<tr><td>拠点 ${esc(r.st)}</td><td>${r.wv >= 6 ? 'ボス' : 'WAVE ' + (r.wv + 1)}</td><td>${r.c}</td><td>${r.won || 0}</td><td>${Math.round(r.s)} 秒</td></tr>`;
+  h += '<h2>出撃が終わった場所</h2><table><tr><th>拠点</th><th>WAVE</th><th>回数</th><th>うち勝ち</th><th>平均時間</th><th>レベルアップ</th></tr>';
+  for (const r of ends) h += `<tr><td>拠点 ${esc(r.st)}</td><td>${r.wv >= 6 ? 'ボス' : 'WAVE ' + (r.wv + 1)}</td><td>${r.c}</td><td>${r.won || 0}</td><td>${Math.round(r.s)} 秒</td><td>${r.lv ? (r.lv - 1).toFixed(1) + ' 回' : '—'}</td></tr>`;
   h += '</table><h2>結果画面で選ばれたもの</h2><table><tr><th>項目</th><th>種類</th><th>回数</th></tr>';
   for (const r of parts) h += `<tr><td>${esc(r.k)}</td><td>${r.n === 'part' ? 'パーツ購入' : r.n === 'buy' ? '強化購入' : 'タブを開く'}</td><td>${r.c}</td></tr>`;
   return new Response(h + '</table></html>', { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
