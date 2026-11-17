@@ -7,7 +7,7 @@ export async function onRequestGet({ request, env }) {
   if (env.STATS_KEY && u.searchParams.get('k') !== env.STATS_KEY) return new Response('forbidden', { status: 403 });
   const days = Math.max(1, Math.min(90, +u.searchParams.get('days') || 7)), since = Date.now() - days * 86400000;
   const q = async (sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results || [];
-  const [fun, load, runs, ends, ret, parts, idle, by] = await Promise.all([
+  const [fun, load, runs, ends, ret, parts, idle, by, wel] = await Promise.all([
     q('SELECT n, dev, COUNT(DISTINCT sid) c FROM ev WHERE ts >= ? GROUP BY n, dev', since),
     q("SELECT dev, COUNT(*) c, AVG(json_extract(d,'$.ms')) ms, MAX(json_extract(d,'$.ms')) mx FROM ev WHERE ts >= ? AND n = 'load' GROUP BY dev", since),
     q("SELECT dev, COUNT(*) c, COUNT(DISTINCT sid) s FROM ev WHERE ts >= ? AND n = 'start' GROUP BY dev", since),
@@ -16,6 +16,7 @@ export async function onRequestGet({ request, env }) {
     q("SELECT json_extract(d,'$.k') k, n, COUNT(*) c FROM ev WHERE ts >= ? AND n IN ('part','buy','tab') GROUP BY k, n ORDER BY c DESC LIMIT 30", since),
     q("SELECT dev, COUNT(*) c, AVG(mt) s FROM (SELECT sid, dev, MAX(t) mt, SUM(n = 'move') mv FROM ev WHERE ts >= ? GROUP BY sid, dev) WHERE mv = 0 GROUP BY dev", since),
     q("SELECT dev, json_extract(d,'$.by') k, COUNT(DISTINCT sid) c FROM ev WHERE ts >= ? AND n = 'move' GROUP BY dev, k", since),
+    q("SELECT dev, COUNT(*) c, SUM(st) s FROM (SELECT sid, dev, MAX(n = 'start') st FROM ev WHERE ts >= ? AND sid IN (SELECT sid FROM ev WHERE ts >= ? AND n = 'welcome') GROUP BY sid, dev) GROUP BY dev", since, since),
   ]);
   const cnt = (n, dev) => (fun.find(r => r.n === n && r.dev === dev) || { c: 0 }).c, DEV = [['d', 'PC'], ['m', 'スマホ']];
   let h = `<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Scrap Tankers 計測</title><style>body{font:14px/1.5 system-ui,sans-serif;background:#0f1728;color:#e8eefc;margin:0;padding:16px;max-width:860px;margin:auto}h1{font-size:20px}h2{font-size:15px;margin:22px 0 6px;color:#ffc83a}table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1px solid #26365c;text-align:right}td:first-child,th:first-child{text-align:left}th{color:#a9b6d6;font-weight:600}small,p{color:#a9b6d6}a{color:#49b8ff}.bad{color:#ff8b96}.ok{color:#5fe08a}</style><h1>Scrap Tankers 計測（直近 ${days} 日）</h1><p>期間: <a href="?days=1${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}">1日</a> / <a href="?days=7${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}">7日</a> / <a href="?days=30${env.STATS_KEY ? '&k=' + esc(u.searchParams.get('k')) : ''}">30日</a>　数はセッション（1回の訪問）単位です。</p>`;
@@ -31,6 +32,7 @@ export async function onRequestGet({ request, env }) {
   h += '<h2>翌日の戻り（D1）</h2><table><tr><th>端末</th><th>初日の人数</th><th>翌日も来た</th><th>D1</th><th>2日目以降</th></tr>';
   for (const [dv, ja] of DEV) { const r = ret.find(x => x.dev === dv) || { d0: 0, d1: 0, d2: 0 }; h += `<tr><td>${ja}</td><td>${r.d0}</td><td>${r.d1}</td><td>${pct(r.d1, r.d0)}</td><td>${r.d2}</td></tr>`; }
   h += '</table><small>目標: D1 12%。端末ごとの匿名IDで数えるため、公開から2日以上たってから意味が出ます</small>';
+  h += '<p><small>その日はじめての再訪で出る「おかえり」画面: ' + DEV.map(([dv, ja]) => { const r = wel.find(x => x.dev === dv); return `${ja} 表示 ${r ? r.c : 0}・そこから出撃 ${r ? r.s : 0}`; }).join(' ／ ') + '</small></p>';
   h += '<h2>出撃が終わった場所</h2><table><tr><th>拠点</th><th>WAVE</th><th>回数</th><th>うち勝ち</th><th>平均時間</th></tr>';
   for (const r of ends) h += `<tr><td>拠点 ${esc(r.st)}</td><td>${r.wv >= 6 ? 'ボス' : 'WAVE ' + (r.wv + 1)}</td><td>${r.c}</td><td>${r.won || 0}</td><td>${Math.round(r.s)} 秒</td></tr>`;
   h += '</table><h2>結果画面で選ばれたもの</h2><table><tr><th>項目</th><th>種類</th><th>回数</th></tr>';

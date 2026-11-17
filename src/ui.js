@@ -21,6 +21,7 @@ export function initUi() {
   window.addEventListener('keydown', e => {
     if (!$('lvl').hidden && armed() && e.key >= '1' && e.key <= '3') { if (pickCb) pickCb(+e.key - 1); }
     else if (!$('res').hidden && armed() && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (resH) resH.go(); }
+    else if (!$('wel').hidden && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (welH) welH(); }
     else if (e.key === 'm' || e.key === 'M') $('mute').click();
   });
 }
@@ -49,7 +50,7 @@ export function legend(show, lock) {
   touchUi = !show; const k = $('keys'), key = show + '|' + !!lock; if (cache.keys === key) return; cache.keys = key; k.hidden = !show;
   if (show) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], lock ? [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('動かした方向へ進む', 'Steer')] : [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>Esc</kbd>', jaEn('一時停止', 'Pause')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
-export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; pickCb = null; resH = null; }
+export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; $('wel').hidden = true; pickCb = null; resH = null; }
 // 一時停止の画面。画面のどこをクリック（タップ）しても再開する
 export function showPause(on, touch, resume) {
   const o = $('pause'); if (!on) { o.hidden = true; return; }
@@ -81,9 +82,7 @@ export function showResult(d, h) {
   $('stats').innerHTML = [[jaEn('時間', 'Time'), tm], [jaEn('撃破', 'Kills'), d.kills], [jaEn('レベル', 'Level'), d.lvl]].map(a => `<div><small>${a[0]}</small><b>${a[1]}</b></div>`).join('');
   $('earn').innerHTML = `+${d.earned} ${NUT} ` + jaEn('スクラップを持ち帰った', 'scrap brought home');
   drawMap(d);
-  let sp = '';
-  if (d.arrived) sp = d.arrived === 'scrap' ? jaEn(`補給便が届いた！ <b>スクラップ +${MT.SUP_SCRAP}</b>`, `Supply drop arrived: <b>+${MT.SUP_SCRAP} scrap</b>`) : jaEn(`補給便が届いた！ <b>${MT.pname(d.arrived)}</b> を装備した`, `Supply drop arrived: <b>${MT.pname(d.arrived)}</b> equipped`);
-  else if (d.supply) sp = d.supply === 'scrap' ? jaEn(`明日届く補給便: <b>スクラップ ${MT.SUP_SCRAP}</b>`, `Tomorrow's supply drop: <b>${MT.SUP_SCRAP} scrap</b>`) : jaEn(`明日届く補給便: <b>${MT.pname(d.supply)}</b>（${MT.pdesc(d.supply)}）`, `Tomorrow's supply drop: <b>${MT.pname(d.supply)}</b> (${MT.pdesc(d.supply)})`);
+  const sp = d.arrived ? supArrived(d.arrived) : d.supply ? supNext(d.supply) : '';
   $('supply').hidden = !sp; $('supply').innerHTML = sp; tab = 'up';
   $('go').textContent = d.win ? jaEn(`次の拠点「${d.next}」へ出撃`, `Next base: ${d.next}`) : jaEn('もう一度出撃', 'Deploy again');
   $('go').onclick = () => { if (armed() && resH) { sfx.ui(); ev('again', { s: Math.round((performance.now() - openAt) / 1000) }); resH.go(); } };
@@ -93,11 +92,11 @@ export function showResult(d, h) {
 // 試作版だけ：勝たなくても全拠点を見られるようにする拠点えらび
 function debugStage(win) {
   let el = $('dbg');
-  if (!el) { el = document.createElement('div'); el.id = 'dbg'; el.style.cssText = 'margin-top:10px;display:flex;gap:10px;justify-content:center;align-items:center;font-size:13px;opacity:.85'; $('go').after(el); }
+  if (!el) { el = document.createElement('div'); el.id = 'dbg'; el.style.cssText = 'margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;font-size:13px;opacity:.85'; $('go').after(el); }
   const draw = () => {
     const th = themeOf(save.stage);
-    el.innerHTML = `<button id="dbgL" style="padding:6px 12px">◀</button><span>${jaEn('試作用 拠点えらび', 'Test: pick base')} ${save.stage} ${jaEn(th.ja, th.en)}</span><button id="dbgR" style="padding:6px 12px">▶</button>`;
-    $('dbgL').onclick = () => mv(-1); $('dbgR').onclick = () => mv(1);
+    el.innerHTML = `<button id="dbgL" style="padding:6px 12px">◀</button><span>${jaEn('試作用 拠点えらび', 'Test: pick base')} ${save.stage} ${jaEn(th.ja, th.en)}</span><button id="dbgR" style="padding:6px 12px">▶</button><button id="dbgW" style="padding:6px 12px">${jaEn('試作用 翌日の再訪を試す', 'Test: come back tomorrow')}</button>`;
+    $('dbgL').onclick = () => mv(-1); $('dbgR').onclick = () => mv(1); $('dbgW').onclick = () => window.dispatchEvent(new Event('tk-nextday'));
     $('go').textContent = jaEn(`拠点 ${save.stage}「${th.ja}」へ出撃`, `Deploy to base ${save.stage}: ${th.en}`);
   };
   const mv = d => { save.stage = Math.max(1, Math.min(60, save.stage + d)); persist(); draw(); };
@@ -159,8 +158,26 @@ function drawParts() {
     box.appendChild(row);
   }
 }
+const supArrived = id => id === 'scrap' ? jaEn(`補給便が届いた！ <b>スクラップ +${MT.SUP_SCRAP}</b>`, `Supply drop arrived: <b>+${MT.SUP_SCRAP} scrap</b>`) : jaEn(`補給便が届いた！ <b>${MT.pname(id)}</b> を装備した`, `Supply drop arrived: <b>${MT.pname(id)}</b> equipped`);
+const supNext = id => id === 'scrap' ? jaEn(`明日届く補給便: <b>スクラップ ${MT.SUP_SCRAP}</b>`, `Tomorrow's supply drop: <b>${MT.SUP_SCRAP} scrap</b>`) : jaEn(`明日届く補給便: <b>${MT.pname(id)}</b>（${MT.pdesc(id)}）`, `Tomorrow's supply drop: <b>${MT.pname(id)}</b> (${MT.pdesc(id)})`);
+// ログイン報酬の7日の列（got: 受け取った日数、now: 今日受け取った日の位置）とデイリーの行
+const lgHtml = (got, now) => `<div class="plab">${jaEn('ログイン報酬（遊んだ日ごとに1つ）', 'Login rewards (one per day you play)')}</div><div class="lg">${MT.LOGIN.map((v, i) => `<span class="${i < got ? 'got' : ''}${i === got ? ' nx' : ''}${i === now ? ' now' : ''}"><small>${jaEn(`${i + 1}日目`, `Day ${i + 1}`)}</small>${i === 6 ? '★' : ''}${NUT}${v}</span>`).join('')}</div>`;
+const dmHtml = D => `<div class="plab">${jaEn('今日のミッション', "Today's missions")}</div>` + D.m.map(m => `<div class="dm${m.done ? ' done' : ''}"><span>${MT.dailyText(m)}</span><span>${m.done ? '✓' : m.p + ' / ' + m.n}　+${MT.DAILY_PAY}</span><div class="bar"><i style="width:${Math.round(m.p / m.n * 100)}%"></i></div></div>`).join('')
+  + `<div class="plab" style="text-align:center">${jaEn('3つ達成でボーナス +', 'All three: bonus +')}${MT.DAILY_BONUS}${D.bonus ? ' ✓' : ''}　${jaEn('毎日0時に入れ替わり', 'New missions every day')}</div>`;
+// その日はじめて開いたときの「おかえり」画面。出撃ボタン（Enter / Space）で go
+let welH = null, welAt = 0;
+export function showWelcome(d, go) {
+  $('welt').textContent = jaEn('おかえり！', 'Welcome back!');
+  $('wels').textContent = jaEn(`ログイン報酬 ${d.day}日目　+${d.pay}`, `Login reward day ${d.day}: +${d.pay}`) + (d.night ? jaEn('　限定カラー「ナイト」', ' and the Night Ops paint') : '');
+  $('wellg').innerHTML = lgHtml(d.day, d.day - 1);
+  $('welsup').hidden = !d.arrived; $('welsup').innerHTML = d.arrived ? supArrived(d.arrived) + (d.arrived !== 'scrap' ? `<small>${MT.pdesc(d.arrived)}</small>` : '') : '';
+  $('weldm').innerHTML = dmHtml(MT.daily());
+  $('welnx').innerHTML = jaEn('所持 ', 'You have ') + NUT + save.scrap + (d.next ? '<br>' + supNext(d.next) : '');
+  const th = themeOf(save.stage); $('welgo').textContent = jaEn(`拠点 ${save.stage}「${th.ja}」へ出撃`, `Deploy to base ${save.stage}: ${th.en}`);
+  welH = () => { if (performance.now() - welAt < 380 || !welH) return; welH = null; $('wel').hidden = true; sfx.ui(); go(); };
+  $('welgo').onclick = () => { audioInit(); if (welH) welH(); };
+  welAt = performance.now(); $('wel').hidden = false; $('wel').scrollTop = 0;
+}
 function drawDaily() {
-  const D = MT.daily(), ld = MT.loginDay();
-  $('tab_daily').innerHTML = `<div class="plab">${jaEn('ログイン報酬（遊んだ日ごとに1つ）', 'Login rewards (one per day you play)')}</div><div class="lg">${MT.LOGIN.map((v, i) => `<span class="${i < ld ? 'got' : ''}${i === ld ? ' nx' : ''}"><small>${jaEn(`${i + 1}日目`, `Day ${i + 1}`)}</small>${i === 6 ? '★' : ''}${NUT}${v}</span>`).join('')}</div><div class="plab">${jaEn('今日のミッション', "Today's missions")}</div>` + D.m.map(m => `<div class="dm${m.done ? ' done' : ''}"><span>${MT.dailyText(m)}</span><span>${m.done ? '✓' : m.p + ' / ' + m.n}　+${MT.DAILY_PAY}</span><div class="bar"><i style="width:${Math.round(m.p / m.n * 100)}%"></i></div></div>`).join('')
-    + `<div class="plab" style="text-align:center">${jaEn('3つ達成でボーナス +', 'All three: bonus +')}${MT.DAILY_BONUS}${D.bonus ? ' ✓' : ''}　${jaEn('毎日0時に入れ替わり', 'New missions every day')}</div>`;
+  $('tab_daily').innerHTML = lgHtml(MT.loginDay(), -1) + dmHtml(MT.daily());
 }
