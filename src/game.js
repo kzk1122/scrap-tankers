@@ -110,7 +110,8 @@ export function initGame() {
 function buildTank() {
   const pt = save.parts, key = pt.hull + pt.turret + pt.paint; if (key === tankKey && tank) return; tankKey = key;
   if (tank) scene.remove(tank.g);
-  tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 0.88 : pt.hull === 'assault' ? 0.86 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter' || pt.turret === 'blast', long: pt.turret === 'rail', laser: pt.turret === 'laser', armor: pt.hull === 'bulk' || pt.hull === 'assault', light: pt.hull === 'light' });
+  // 重装車体はひと回り大きく、装甲を厚く見せる（当たり判定はどの車体も同じ）
+  tank = mkTank(MT.paintCol(), pt.hull === 'light' ? 0.74 : pt.hull === 'bulk' ? 1.0 : pt.hull === 'assault' ? 0.86 : 0.8, { twin: pt.turret === 'twin', short: pt.turret === 'scatter' || pt.turret === 'blast', long: pt.turret === 'rail', laser: pt.turret === 'laser', armor: pt.hull === 'assault', heavy: pt.hull === 'bulk', light: pt.hull === 'light' });
 }
 const pt0 = () => save.parts;
 const HULL = { std: [1, 1], light: [1.18, 0.8], bulk: [0.88, 1.45], assault: [1.1, 1.25] };
@@ -254,9 +255,10 @@ function bullet(x, z, a, foe, dmg, spd, life) {
 function shoot() {
   const n = S.shots;
   const cr = () => S.dmg * (S.crit && rnd() < S.crit ? 2.5 : 1);
-  for (let k = 0; k < n; k++) { const a = P.ty + (k - (n - 1) / 2) * S.spread; bullet(P.x + Math.sin(a) * 2.2, P.z + Math.cos(a) * 2.2, a, false, cr(), S.bspd, S.blife); }
+  const d0 = Math.max(2.2, tank.mz - 0.15); // 弾は砲口から（大きい車体でも砲身の途中から出ないように）
+  for (let k = 0; k < n; k++) { const a = P.ty + (k - (n - 1) / 2) * S.spread; bullet(P.x + Math.sin(a) * d0, P.z + Math.cos(a) * d0, a, false, cr(), S.bspd, S.blife); }
   for (let k = 0; k < S.rear; k++) { const a = P.ty + Math.PI + (k - (S.rear - 1) / 2) * 0.2; bullet(P.x + Math.sin(a) * 1.2, P.z + Math.cos(a) * 1.2, a, false, S.dmg, S.bspd, S.blife); }
-  P.recoil = 1; sfx.shot(); fxMuzzle(P.x + Math.sin(P.ty) * 2.3, P.z + Math.cos(P.ty) * 2.3, P.ty);
+  P.recoil = 1; sfx.shot(); fxMuzzle(P.x + Math.sin(P.ty) * (tank.mz + 0.1), P.z + Math.cos(P.ty) * (tank.mz + 0.1), P.ty);
 }
 // ---- 必殺技: 敵を倒すとゲージがたまり、満タンで大砲撃（時間ではたまらない） ----
 // 1体につき 経験値×3.5%（小型1、砲手2、自爆車と迫撃車3、大型5）。ボスは体力を全部削って80%
