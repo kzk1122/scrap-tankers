@@ -131,14 +131,16 @@ function tankParts(o = {}) {
   return { paint, steel, rubber, tur, brl, Y, L };
 }
 const cleatG = () => new THREE.BoxGeometry(0.46, 0.07, 0.15);
-// 敵用: 1つにまとめたジオメトリ（インスタンス描画）。履帯の板は止まったまま
+// 敵用: 1つにまとめたジオメトリ（インスタンス描画）。履帯の板は止まったまま。part: 'body'（車体）/ 'tur'（砲塔と砲身、原点で回る）/ 省略で全部
 export function tankGeo(hex, o = {}) {
-  const P = tankParts(Object.assign({ eye: true }, o)), out = { pos: [], nor: [], col: [] }, c = new THREE.Color(), nc = o.lite ? 12 : 20;
+  const P = tankParts(Object.assign({ eye: true }, o)), out = { pos: [], nor: [], col: [] }, c = new THREE.Color(), nc = o.lite ? 12 : 20, B = o.part !== 'tur', T = o.part !== 'body';
   const sc = o.scale || 1, add = (list, col, dy) => { for (const g of list) { if (dy) g.translate(0, dy, 0); g.scale(sc, sc, sc); pushGeo(out, g, c.set(col)); } };
-  add(P.paint, hex); add(P.tur, o.tur || hex, P.Y); add(P.brl, 0x2b2e33, P.Y); add(P.steel, 0x2b2e33);
-  const cl = []; for (const sx of [-0.98, 0.98]) for (let i = 0; i < nc; i++) { loop(i / nc, lp); cl.push(cleatG().rotateX(lp.a).translate(sx, lp.y, lp.z)); } add(cl, 0x17181b);
-  const gl = []; if (o.crown) for (const x of [-0.4, 0, 0.4]) gl.push(new THREE.BoxGeometry(0.16, x ? 0.3 : 0.42, 0.16).translate(x, P.Y + 0.6, -0.3)); gl.push(new THREE.BoxGeometry(0.66, 0.1, 0.06).translate(0, P.Y + 0.3, 0.74));
-  for (const g of gl) { g.scale(sc, sc, sc); pushGeo(out, g, c.setRGB(5, 0.7, 0.3)); }
+  if (B) { add(P.paint, hex); add(P.steel, 0x2b2e33); const cl = []; for (const sx of [-0.98, 0.98]) for (let i = 0; i < nc; i++) { loop(i / nc, lp); cl.push(cleatG().rotateX(lp.a).translate(sx, lp.y, lp.z)); } add(cl, 0x17181b); }
+  if (T) {
+    add(P.tur, o.tur || hex, P.Y); add(P.brl, 0x2b2e33, P.Y);
+    const gl = []; if (o.crown) for (const x of [-0.4, 0, 0.4]) gl.push(new THREE.BoxGeometry(0.16, x ? 0.3 : 0.42, 0.16).translate(x, P.Y + 0.6, -0.3)); gl.push(new THREE.BoxGeometry(0.66, 0.1, 0.06).translate(0, P.Y + 0.3, 0.74));
+    for (const g of gl) { g.scale(sc, sc, sc); pushGeo(out, g, c.setRGB(5, 0.7, 0.3)); }
+  }
   return finish(out);
 }
 const merged = (list, hex) => { const o = { pos: [], nor: [], col: [] }, c = new THREE.Color(hex); for (const g of list) pushGeo(o, g, c); return finish(o); };
@@ -255,6 +257,7 @@ export function applyTheme(th, feat) {
   g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
   gtex.needsUpdate = true;
   setGrass(th); setWater(feat); sea.visible = !!th.sea; outer.visible = !th.sea;
+  if (th.dust !== undefined) DUST = rgb(th.dust).map(v => v * 0.9);
 }
 export function addShake(a) { shake = Math.min(1.2, shake + a); }
 export function camUpdate(px, pz, dt, snap, stiff = 7) {
@@ -341,14 +344,15 @@ function mkSprites(tex, additive, cap) {
   m.frustumCulled = false; m.renderOrder = additive ? 4 : 3; scene.add(m);
   return { list: [], cap, ip, ia, ic, g };
 }
-function emit(sys, x, y, z, vx, vy, vz, life, s0, s1, c0, c1, a, grav = 0, drag = 0) { if (sys.list.length >= sys.cap) return; sys.list.push({ x, y, z, vx, vy, vz, t: 0, life, s0, s1, c0, c1, a, grav, drag, rot: R() * 6.283, vr: rr(-1, 1) }); }
+// ce: 色の変わり方（1 は一定、大きいほど早く c1 に近づく。炎が煙に変わるときに使う）
+function emit(sys, x, y, z, vx, vy, vz, life, s0, s1, c0, c1, a, grav = 0, drag = 0, ce = 1) { if (sys.list.length >= sys.cap) return; sys.list.push({ x, y, z, vx, vy, vz, t: 0, life, s0, s1, c0, c1, a, grav, drag, ce, rot: R() * 6.283, vr: rr(-1, 1) }); }
 function updSprites(sys, dt) {
   const L = sys.list; let n = 0;
   for (let i = 0; i < L.length; i++) {
     const p = L[i]; p.t += dt; if (p.t >= p.life) continue; L[n] = p;
     const k = Math.exp(-p.drag * dt); p.vx *= k; p.vy = p.vy * k - p.grav * dt; p.vz *= k; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; if (p.y < 0.05 && p.grav > 0) { p.y = 0.05; p.vy *= -0.35; p.vx *= 0.6; p.vz *= 0.6; } p.rot += p.vr * dt;
     const f = p.t / p.life, e = 1 - (1 - f) * (1 - f), fo = f < 0.12 ? f / 0.12 : f > 0.45 ? 1 - (f - 0.45) / 0.55 : 1;
-    sys.ip.setXYZ(n, p.x, p.y, p.z); sys.ia.setXYZW(n, lerp(p.s0, p.s1, e), p.rot, p.a * fo, 0); sys.ic.setXYZ(n, lerp(p.c0[0], p.c1[0], f), lerp(p.c0[1], p.c1[1], f), lerp(p.c0[2], p.c1[2], f)); n++;
+    sys.ip.setXYZ(n, p.x, p.y, p.z); sys.ia.setXYZW(n, lerp(p.s0, p.s1, e), p.rot, p.a * fo, 0); const fc = p.ce === 1 ? f : 1 - Math.pow(1 - f, p.ce); sys.ic.setXYZ(n, lerp(p.c0[0], p.c1[0], fc), lerp(p.c0[1], p.c1[1], fc), lerp(p.c0[2], p.c1[2], fc)); n++;
   }
   L.length = n; sys.g.instanceCount = n; sys.ip.needsUpdate = sys.ia.needsUpdate = sys.ic.needsUpdate = true;
 }
@@ -357,9 +361,10 @@ function initFx() {
   const puff = texOf(128, (u, v) => { const dx = u - 0.5, dz = v - 0.5, d = Math.hypot(dx, dz) * 2, n = fbm(u * 5, v * 5, 4, 4096), a = clamp((1 - d) * 1.6 - (1 - n) * 0.7, 0, 1), sh = 0.72 + 0.28 * clamp(0.5 - dz * 1.4 - dx * 0.5, 0, 1); return [sh, sh, sh, a * a * (3 - 2 * a)]; });
   const glow = texOf(64, (u, v) => { const d = Math.hypot(u - 0.5, v - 0.5) * 2; return [1, 1, 1, Math.pow(clamp(1 - d, 0, 1), 2.2)]; });
   PS = mkSprites(puff, false, coarse ? 260 : 420); PA = mkSprites(glow, true, coarse ? 380 : 620);
-  chips = new Inst(new THREE.BoxGeometry(1, 1, 1), PN, {}); chips.m.castShadow = true;
+  const cg = new THREE.BoxGeometry(1, 1, 1); cg.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(cg.attributes.position.count * 3).fill(1), 3)); // 頂点色がないと共通の素材では真っ黒になる
+  chips = new Inst(cg, PN, {}); chips.m.castShadow = true;
   const st = texOf(64, (u, v) => { const d = Math.hypot(u - 0.5, v - 0.5) * 2, a = clamp(1 - d, 0, 1) * (0.6 + 0.6 * fbm(u * 6, v * 6, 3, 4096)); return [0.03, 0.025, 0.02, clamp(a * 1.5, 0, 0.85)]; });
-  scorch = { im: new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 48), n: 0 };
+  scorch = { im: new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), SCN), n: 0 };
   scorch.im.count = 0; scorch.im.frustumCulled = false; scene.add(scorch.im);
   { const N = 320, g = new THREE.BufferGeometry(), pos = new Float32Array(N * 12), uv = new Float32Array(N * 8), born = new Float32Array(N * 4).fill(-99), idx = [];
     for (let i = 0; i < N; i++) { idx.push(i * 4, i * 4 + 2, i * 4 + 1, i * 4 + 1, i * 4 + 2, i * 4 + 3); uv.set([0, 0, 1, 0, 0, 1, 1, 1], i * 8); }
@@ -374,13 +379,14 @@ function initFx() {
   for (let i = 0; i < 12; i++) { const o = new THREE.Mesh(wr, wm(0.9)), f = new THREE.Mesh(wf, wm(0.3)); o.position.y = 0.12; f.position.y = 0.1; o.visible = f.visible = false; o.renderOrder = f.renderOrder = 2; scene.add(o, f); warnC.push({ o, f }); }
   for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(wl, wm(0.3)); m.position.y = 0.11; m.visible = false; m.renderOrder = 2; scene.add(m); warnL.push(m); }
 }
-// 破片（光の当たる小さな箱）。呼び方は以前の粒子と同じ
-export function burst(x, y, z, n, hex, spd, size, life, up = 1) {
+// 破片（光の当たる小さな箱）。hot: 赤熱して飛び、冷えて元の色になる割合。大きい破片の一部は煙の尾を引く
+const HOT = [4.2, 1.0, 0.1];
+export function burst(x, y, z, n, hex, spd, size, life, up = 1, hot = 0) {
   if (parts.length > PN - 40) n = Math.ceil(n / 3);
-  const c = rgb(hex);
+  const c = rgb(hex); let tr = size >= 0.4 && hot > 0 ? (coarse ? 2 : 4) : 0;
   for (let i = 0; i < n && parts.length < PN; i++) {
-    const a = R() * 6.283, v = spd * (0.35 + R() * 0.65);
-    parts.push({ x, y, z, vx: Math.cos(a) * v, vz: Math.sin(a) * v, vy: (2 + R() * 6) * up, l: life * (0.6 + R() * 0.6), m: life, s: size * (0.6 + R() * 0.8), r: c[0], g: c[1], b: c[2], ry: a });
+    const a = R() * 6.283, v = spd * (0.35 + R() * 0.65), h = R() < hot, t = h && tr > 0 && R() < 0.5 ? (tr--, 1) : 0, l = life * (0.6 + R() * 0.6) * (t ? 1.6 : 1);
+    parts.push({ x, y, z, vx: Math.cos(a) * v, vz: Math.sin(a) * v, vy: (2 + R() * 6) * up * (t ? 1.6 : 1), l, l0: l, m: life, s: size * (0.6 + R() * 0.8), r: c[0], g: c[1], b: c[2], ry: a, h, t, tt: 0 });
   }
 }
 export function updParticles(dt) {
@@ -389,26 +395,59 @@ export function updParticles(dt) {
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i]; p.l -= dt; if (p.l <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
     p.vy -= 22 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.ry += dt * 5;
-    if (p.y < p.s / 2) { p.y = p.s / 2; p.vy *= -0.35; p.vx *= 0.6; p.vz *= 0.6; }
-    const s = p.s * clamp(p.l / p.m * 2, 0, 1); chips.put(p.x, p.y, p.z, p.ry, s, s * 0.6, p.r, p.g, p.b);
+    if (p.y < p.s / 2) { p.y = p.s / 2; p.vy *= -0.35; p.vx *= 0.6; p.vz *= 0.6; p.t = 0; }
+    if (p.t && (p.tt -= dt) <= 0 && PS.list.length < PS.cap * 0.7) { p.tt = 0.03; emit(PS, p.x, p.y, p.z, rr(-0.3, 0.3), rr(0.3, 0.8), rr(-0.3, 0.3), rr(0.5, 0.9), 0.3, rr(0.9, 1.3), [1.6, 0.7, 0.2], SMK1, 0.6, -0.2, 1, 4); }
+    const s = p.s * clamp(p.l / p.m * 2, 0, 1);
+    if (p.h) { const k = clamp((p.l0 - p.l) / 0.6, 0, 1); chips.put(p.x, p.y, p.z, p.ry, s, s * 0.6, lerp(HOT[0], p.r, k), lerp(HOT[1], p.g, k), lerp(HOT[2], p.b, k)); }
+    else chips.put(p.x, p.y, p.z, p.ry, s, s * 0.6, p.r, p.g, p.b);
   }
   chips.end(); updSprites(PA, dt); updSprites(PS, dt);
   for (const l of flashes) l.intensity *= Math.exp(-14 * dt);
 }
-const FIRE0 = [2.2, 1.0, 0.25], FIRE1 = [0.9, 0.15, 0.02], SMK0 = [0.33, 0.3, 0.27], SMK1 = [0.1, 0.1, 0.11], SPK0 = [9, 5, 1.2], SPK1 = [3, 0.6, 0.1];
-// 爆発: 閃光・炎・煙・火花・焦げ跡。R は半径の目安
+const FIRE0 = [2.2, 1.0, 0.25], FIRE1 = [0.9, 0.15, 0.02], SMK0 = [0.3, 0.28, 0.26], SMK1 = [0.11, 0.11, 0.12], SPK0 = [9, 5, 1.2], SPK1 = [3, 0.6, 0.1];
+const FB0 = [2.4, 0.75, 0.12], SMK2 = [0.09, 0.085, 0.08], EMB0 = [7, 2.4, 0.4], EMB1 = [2.4, 0.35, 0.05]; let DUST = [0.55, 0.5, 0.4];
+const lot = () => (PA.list.length > PA.cap * 0.6 || PS.list.length > PS.cap * 0.6 ? 0.4 : 1) * (coarse ? 0.65 : 1);
+// 爆発: 短い芯の光 → 膨らみながら黒煙に変わる火の玉 → 昇って残る煙。地面を走る土ぼこり、火花、火の粉、焦げ跡。R は半径の目安
 export function fxExplode(x, z, Rr) {
-  const busy = PA.list.length > PA.cap * 0.6 ? 0.4 : 1, k = Rr / 3; flash(x, z, 13 * k); if (Rr >= 2.5) addScorch(x, z, Rr * 1.5);
-  emit(PA, x, 1, z, 0, 0, 0, 0.1, Rr * 1.3, Rr * 2.1, [2.4, 1.5, 0.6], [1.2, 0.5, 0.1], 0.8);
-  for (let i = 0; i < (7 * k + 3) * busy; i++) { const a = R() * 6.283, s = rr(1, 6) * k; emit(PA, x + Math.cos(a) * 0.4, rr(0.5, 1.4), z + Math.sin(a) * 0.4, Math.cos(a) * s, rr(2, 7), Math.sin(a) * s, rr(0.35, 0.75), rr(1.6, 2.6) * k, 0.4, FIRE0, FIRE1, 0.5, -2, 2.5); }
-  for (let i = 0; i < (7 * k + 2) * busy; i++) { const a = R() * 6.283, s = rr(0.5, 3.5) * k; emit(PS, x + Math.cos(a) * 0.6, rr(0.6, 1.6), z + Math.sin(a) * 0.6, Math.cos(a) * s, rr(1.5, 4.5), Math.sin(a) * s, rr(1.1, 2.2), rr(1, 1.6) * k, rr(3, 4.6) * k, SMK0, SMK1, 0.7, -0.6, 1.4); }
-  for (let i = 0; i < 14 * k * busy; i++) { const a = R() * 6.283, s = rr(6, 17); emit(PA, x, 0.8, z, Math.cos(a) * s, rr(4, 13), Math.sin(a) * s, rr(0.4, 0.9), 0.22, 0.05, SPK0, SPK1, 1, 26, 0.6); }
+  const lo = lot(), k = Rr / 3, sk = Math.sqrt(k); flash(x, z, 11 * k); addScorch(x, z, Rr * (Rr >= 2.5 ? 1.5 : 1.3));
+  emit(PA, x, 1, z, 0, 0, 0, 0.08 + 0.04 * k, Rr * 0.75, Rr * 1.4, [2.2, 1.45, 0.65], [1.5, 0.5, 0.1], 0.75);
+  for (let i = 0; i < (4 * k + 3) * lo; i++) { const a = R() * 6.283, s = rr(0.6, 3.4) * k; emit(PS, x + Math.cos(a) * 0.3 * k, rr(0.5, 1.3), z + Math.sin(a) * 0.3 * k, Math.cos(a) * s, rr(1.2, 3.6) * sk, Math.sin(a) * s, rr(0.8, 1.4), rr(0.8, 1.3) * k, rr(2.2, 3.3) * k, FB0, SMK2, 0.95, -0.8, 2.6, 6); }
+  for (let i = 0; i < (3 * k + 2) * lo; i++) { const a = R() * 6.283, s = rr(1.5, 5) * k; emit(PA, x + Math.cos(a) * 0.3, rr(0.6, 1.4), z + Math.sin(a) * 0.3, Math.cos(a) * s, rr(2, 6), Math.sin(a) * s, rr(0.25, 0.5), rr(1.1, 1.8) * k, 0.3, FIRE0, FIRE1, 0.4, -2, 3); }
+  for (let i = 0; i < (2 * k + 1) * lo; i++) emit(PS, x + rr(-0.5, 0.5) * k, rr(1.4, 2.4), z + rr(-0.5, 0.5) * k, rr(-0.4, 0.4) + 0.5, rr(1.4, 2.6), rr(-0.4, 0.4), rr(2.2, 3.4), rr(1.1, 1.6) * k, rr(3.4, 5) * k, SMK0, SMK1, 0.6, -0.25, 0.7);
+  if (k >= 0.6) for (let i = 0, n = Math.round((5 + 5 * k) * lo); i < n; i++) { const a = i / n * 6.283 + rr(-0.2, 0.2), s = rr(6, 9) * sk; emit(PS, x + Math.cos(a) * 0.6 * k, 0.35, z + Math.sin(a) * 0.6 * k, Math.cos(a) * s, rr(0.2, 0.8), Math.sin(a) * s, rr(0.6, 1.0), 0.6 * k, rr(1.8, 2.6) * k, DUST, DUST, 0.4, 0, 4); }
+  for (let i = 0; i < 10 * k * lo; i++) { const a = R() * 6.283, s = rr(6, 17); emit(PA, x, 0.8, z, Math.cos(a) * s, rr(4, 13), Math.sin(a) * s, rr(0.4, 0.9), 0.22, 0.05, SPK0, SPK1, 1, 26, 0.6); }
+  for (let i = 0; i < (3 + 4 * k) * lo; i++) emit(PA, x + rr(-0.6, 0.6) * k, rr(0.6, 1.6), z + rr(-0.6, 0.6) * k, rr(-2.5, 2.5) * sk, rr(3, 7), rr(-2.5, 2.5) * sk, rr(1, 1.9), 0.16, 0.05, EMB0, EMB1, 1, 3.2, 0.9);
+}
+// 倒した敵の残骸から上がる煙と小さな炎。t は倒してからの秒数
+export function fxWreck(x, z, t, big) {
+  const s = big ? 1.9 : 1;
+  if (PS.list.length < PS.cap * 0.55) emit(PS, x + rr(-0.3, 0.3) * s, 0.9 * s, z + rr(-0.3, 0.3) * s, rr(-0.2, 0.2) + 0.5, rr(1.4, 2.4), rr(-0.2, 0.2), rr(1.4, 2.2), 0.45 * s, rr(1.5, 2.3) * s, t < 1.5 ? SMK0 : [0.4, 0.39, 0.38], SMK1, t < 1.5 ? 0.6 : 0.42, -0.4, 0.6);
+  if (t < 1.8 && PA.list.length < PA.cap * 0.6) emit(PA, x + rr(-0.35, 0.35) * s, 0.75 * s, z + rr(-0.35, 0.35) * s, 0, rr(1, 2.2), 0, rr(0.25, 0.45), 0.75 * s, 0.2, FIRE0, FIRE1, 0.6 * (1 - t / 1.8), -1, 2);
+}
+// 必殺技の砲弾: 砲口から着弾点まで弧を描いて飛ぶ光と、その軌跡
+export function fxShell(x0, z0, x1, z1, T, hex) {
+  const c = rgb(hex).map(v => v * 3.2), c1 = c.map(v => v * 0.25), dx = x1 - x0, dz = z1 - z0, H = 1.2, vy = 9, g = 2 * (H + vy * T) / (T * T);
+  emit(PA, x0, H, z0, dx / T, vy, dz / T, T, 1.6, 1.2, c, c, 1, g, 0);
+  const n = Math.min(22, Math.ceil(Math.hypot(dx, dz) / 0.8));
+  for (let i = 1; i <= n; i++) { const f = i / n, t = f * T; emit(PA, x0 + dx * f, H + vy * t - g * t * t / 2, z0 + dz * f, 0, 0, 0, t + 0.14, 0.55, 0.15, c, c1, 0.7); }
+}
+// 大きな衝撃波: 二重の輪、光の柱、地面を走る土ぼこり、青い火花
+export function fxShock(x, z, Rr, hex) {
+  const c = rgb(hex).map(v => v * 3), lo = lot(); ring(x, z, Rr * 1.5, hex); ring(x, z, Rr * 0.9, 0xffffff); flash(x, z, 16, hex);
+  for (let i = 0; i < 6; i++) emit(PA, x, 0.6 + i * 1.5, z, 0, 2 + i, 0, 0.18 + i * 0.03, 2.2 - i * 0.22, 0.5, c.map(v => v * 0.55), c.map(v => v * 0.15), 0.5);
+  for (let i = 0, n = Math.round(16 * lo); i < n; i++) { const a = i / n * 6.283 + rr(-0.15, 0.15), s = rr(11, 15); emit(PS, x + Math.cos(a) * 1.5, 0.4, z + Math.sin(a) * 1.5, Math.cos(a) * s, rr(0.3, 1), Math.sin(a) * s, rr(0.7, 1.1), 1.2, rr(3, 4), DUST, DUST, 0.45, 0, 3.2); }
+  for (let i = 0; i < 18 * lo; i++) { const a = R() * 6.283, s = rr(8, 20); emit(PA, x, 0.8, z, Math.cos(a) * s, rr(5, 14), Math.sin(a) * s, rr(0.5, 1), 0.26, 0.05, c, c.map(v => v * 0.3), 1, 24, 0.5); }
 }
 export function fxMuzzle(x, z, ang, hex) {
   const s = Math.sin(ang), c = Math.cos(ang), col = hex ? rgb(hex).map(v => v * 2.4) : [2.6, 1.7, 0.7]; flash(x, z, 4, hex || 0xffc070);
   emit(PA, x, 1.2, z, 0, 0, 0, 0.06, 0.7, 1.3, col, [col[0] * 0.5, col[1] * 0.3, col[2] * 0.2], 1);
   for (let i = 0; i < 3; i++) emit(PA, x, 1.2, z, s * rr(4, 12) + rr(-2, 2), rr(-0.5, 1.5), c * rr(4, 12) + rr(-2, 2), rr(0.1, 0.2), 0.45, 0.1, FIRE0, FIRE1, 0.7, 0, 4);
   if (PS.list.length < PS.cap * 0.5) emit(PS, x, 1.2, z, s * rr(1, 4), rr(0.3, 1.2), c * rr(1, 4), rr(0.4, 0.8), 0.35, rr(1.0, 1.6), [0.75, 0.72, 0.68], [0.5, 0.5, 0.5], 0.26, -0.5, 2.5);
+}
+// 弾が敵に当たった: 小さな閃光と火花、薄い煙
+export function fxHit(x, z) {
+  emit(PA, x, 1.2, z, 0, 0, 0, 0.07, 0.6, 1.5, [2.6, 1.9, 1.1], [1.6, 0.7, 0.2], 0.9); fxSparks(x, z, 4);
+  if (PS.list.length < PS.cap * 0.5) emit(PS, x, 1.1, z, rr(-0.6, 0.6), rr(0.6, 1.4), rr(-0.6, 0.6), rr(0.4, 0.6), 0.3, 0.9, [0.6, 0.58, 0.55], SMK1, 0.35, -0.3, 2);
 }
 export function fxSparks(x, z, n = 5, hex) { const c0 = hex ? rgb(hex).map(v => v * 7) : SPK0; for (let j = 0; j < n; j++) { const a = R() * 6.283; emit(PA, x, 1.2, z, Math.cos(a) * rr(3, 10), rr(2, 8), Math.sin(a) * rr(3, 10), rr(0.2, 0.45), 0.2, 0.04, c0, SPK1, 1, 24, 0.5); } }
 export function fxDust(x, z, hex, n = 1, big = 1) { const c = rgb(hex); for (let i = 0; i < n; i++) emit(PS, x + rr(-0.3, 0.3), 0.25, z + rr(-0.3, 0.3), rr(-1, 1) * big, rr(0.3, 1.2) * big, rr(-1, 1) * big, rr(0.6, 1.1), 0.45 * big, rr(1.2, 2.0) * big, c, c, 0.3, 0, 1.5); }
@@ -423,7 +462,8 @@ export function fxAmb(kind, x, z, dt) {
   if (R() < dt * 7) fxMote(x, z);
 }
 function fxMote(x, z) { emit(PA, x + rr(-24, 24), rr(0.6, 4), z + rr(-16, 16), rr(-0.3, 0.3), rr(0.05, 0.3), rr(-0.3, 0.3), rr(2.5, 5), 0.1, 0.16, [2.2, 1.9, 1.0], [2.2, 1.9, 1.0], 0.5, 0, 0); }
-function addScorch(x, z, Rr) { const i = scorch.n++ % 48; M4.compose(V3.set(x, 0.03, z), Q.setFromEuler(EU.set(0, R() * 6.283, 0)), SC.set(Rr, 1, Rr)); scorch.im.setMatrixAt(i, M4); scorch.im.count = Math.min(48, scorch.n); scorch.im.instanceMatrix.needsUpdate = true; }
+const SCN = 72;
+function addScorch(x, z, Rr) { const i = scorch.n++ % SCN; M4.compose(V3.set(x, 0.03, z), Q.setFromEuler(EU.set(0, R() * 6.283, 0)), SC.set(Rr, 1, Rr)); scorch.im.setMatrixAt(i, M4); scorch.im.count = Math.min(SCN, scorch.n); scorch.im.instanceMatrix.needsUpdate = true; }
 export function clearMarks() { scorch.n = 0; scorch.im.count = 0; marks.born.fill(-99); marks.g.attributes.aB.needsUpdate = true; PA.list.length = PS.list.length = parts.length = 0; }
 export function addMark(x, z, ry, len, w = 0.78) {
   for (const sx of [-w, w]) { const i = marks.i++ % marks.N, c = Math.cos(ry), s = Math.sin(ry), mx = x + c * sx, mz = z - s * sx, hw = 0.19, hl = len / 2, o = i * 12; const P = (k, a, b) => { marks.pos[o + k * 3] = mx + c * a + s * b; marks.pos[o + k * 3 + 1] = 0.025; marks.pos[o + k * 3 + 2] = mz - s * a + c * b; }; P(0, -hw, -hl); P(1, hw, -hl); P(2, -hw, hl); P(3, hw, hl); marks.born.fill(U.t.value, i * 4, i * 4 + 4); }
