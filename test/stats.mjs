@@ -16,6 +16,12 @@ const txt = html.replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').re
 ok(/1分プレイ 1 50\.0% 0 0\.0%/.test(txt), 'funnel: t60 PC 1/2, mobile 0/1'); ok(/スマホ 4\.20 秒/.test(txt), 'mobile load 4.20 s');
 ok(/PC 1 1 100\.0%/.test(txt), 'D1: PC 1 of 1 returned'); ok(/拠点 1 ボス 1 1 150 秒/.test(txt) && /twin パーツ購入 1/.test(txt), 'run ends and purchases listed');
 ok(/おかえり」画面: PC 表示 1・そこから出撃 1 ／ スマホ 表示 0・そこから出撃 0/.test(txt), 'welcome screen shown and deployed counted');
+{ // ?from= より前は数えない（未来の日付なら全部 0）、環境変数 STATS_FROM でも同じ
+  const t = async (url, env = {}) => (await (await onRequestGet({ request: new Request(url), env: { DB, ...env } })).text()).replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const fut = await t('http://x/stats?from=2099-01-01'), past = await t('http://x/stats?from=2020-01-01'), envd = await t('http://x/stats', { STATS_FROM: '2099-01-01' });
+  ok(/2099-01-01 以降/.test(fut) && /ロード完了 0 — 0 —/.test(fut) && /ロード完了 2 100\.0% 1 100\.0%/.test(past) && /ロード完了 0 — 0 —/.test(envd), 'from= hides earlier events (also via STATS_FROM)');
+  ok(/days=7&amp;from=2099-01-01|days=7&from=2099-01-01/.test(await (await onRequestGet({ request: new Request('http://x/stats?from=2099-01-01'), env: { DB } })).text()), 'period links keep from=');
+}
 ok((await onRequestGet({ request: new Request('http://x/stats'), env: { DB, STATS_KEY: 'abc' } })).status === 403, 'key required when STATS_KEY is set');
 if (process.argv[2]) (await import('node:fs')).writeFileSync(process.argv[2], html);
 process.exit(fail ? 1 : 0);
