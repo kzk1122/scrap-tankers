@@ -1,17 +1,18 @@
 // 起動とメインループ、テスト用の入口
 import { diag, seed, save, setDayOff, missing, TARGET } from './core.js';
 import * as MT from './meta.js';
-import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality } from './gfx.js';
+import { initGfx, camera, camUpdate, render, updParticles, updRings, adapt, renderer, setQ, quality, camPose } from './gfx.js';
 import { initInput, pollInput, setLock, relock, I } from './input.js';
 import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
 import * as MX from './metrics.js';
 import { initUi, showPause, showWelcome } from './ui.js';
-import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, explode, G, P, TUNE } from './game.js';
+import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, explode, spawnAt, G, P, TUNE } from './game.js';
 
 const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
   if (G.paused) { I.sp = false; if (doRender && ++pzF % 10 === 0) render(); return; } // 一時停止中はたまに描き直すだけ（画面サイズの変更に追従）
+  if (G.slowT > 0) { G.slowT -= dt; dt *= 0.3; } // ボスを倒した瞬間などは少しのあいだスローモーション
   T.time += dt; setLock(G.state === 'play'); pollInput(camera); update(dt);
   if (!doRender) return;
   updParticles(dt); updRings(dt); draw(T.time); camUpdate(P.x, P.z, dt, false, I.touch ? 7 : 28); render();
@@ -64,7 +65,7 @@ async function boot() {
 // ボットと確認用: 仮想時計で1フレームずつ進める
 window.__tk = {
   manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, miss: missing, boss: toBoss, pick: pickUp, restart: startRun, save,
-  tune: TUNE, G, boom: explode, input(o) { I.ext = o; }, pause, resume() { pzAt = 0; resume(); },
+  tune: TUNE, G, boom: explode, spawn: spawnAt, cam: camPose, input(o) { I.ext = o; }, pause, resume() { pzAt = 0; resume(); },
   step(n = 1, dt = 1 / 60, doRender = false) { for (let i = 0; i < n; i++) tick(dt, doRender && i === n - 1); return G.state; },
   go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },
 };

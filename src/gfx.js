@@ -128,28 +128,49 @@ function tankParts(o = {}) {
   if (o.plow) { steel.push(new THREE.BoxGeometry(3.0, 0.9, 0.16).translate(0, 0.55, 1.75)); steel.push(new THREE.BoxGeometry(0.2, 0.3, 0.5).translate(-0.7, 0.5, 1.5)); steel.push(new THREE.BoxGeometry(0.2, 0.3, 0.5).translate(0.7, 0.5, 1.5)); for (const x of [-1.33, 1.33]) steel.push(new THREE.BoxGeometry(0.12, 0.5, 2.2).translate(x, 0.6, 0)); }
   if (o.crown) for (const x of [-0.4, 0, 0.4]) glow.push(new THREE.BoxGeometry(0.16, x ? 0.3 : 0.42, 0.16).translate(x, Y + 0.6 + (x ? 0 : 0.06), -0.3));
   if (o.eye) glow.push(new THREE.BoxGeometry(0.66, 0.1, 0.06).translate(0, Y + 0.3, 0.72));
-  return { paint, steel, rubber, tur, brl, Y, L };
+  // 作り込み（軽量版以外）: hst 車体の鋼、tst 砲塔の鋼、cv 布、hgl 車体の光るところ、tgl 砲塔の光るところ。砲塔の部品は砲塔の原点基準
+  const hst = [], tst = [], cv = [], hgl = [], tgl = [];
+  if (!o.lite) {
+    for (let i = 0; i < 5; i++) hst.push(new THREE.BoxGeometry(0.92, 0.05, 0.07).translate(0, 1.15, -1.06 + i * 0.16)); // 機関室の格子
+    for (const x of [-0.5, 0.5]) hst.push(cylZ(0.075, 0.085, 0.32, 8, 0.86, -1.48).translate(x, 0, 0)); // 排気管
+    for (const x of [-0.62, 0.62]) hst.push(new THREE.BoxGeometry(0.14, 0.1, 0.18).translate(x, 0.5, 1.6)); // 牽引フック
+    for (const x of [-0.42, 0, 0.42]) hst.push(new THREE.BoxGeometry(0.36, 0.06, 0.15).rotateX(0.65).translate(x, 0.86, 1.24)); // 予備の履帯
+    tst.push(new THREE.BoxGeometry(0.14, 0.12, 0.2).translate(-0.3, 0.46, -0.1), cylZ(0.035, 0.035, 0.62, 6, 0.55, 0.22).translate(-0.3, 0, 0)); // 機銃
+    tst.push(new THREE.BoxGeometry(0.16, 0.1, 0.12).translate(-0.24, 0.46, 0.38)); // 照準器
+    for (const x of [-0.5, 0.5]) tst.push(new THREE.BoxGeometry(0.05, 0.16, 0.34).translate(x, 0.2, -0.94)); // 後ろのかご
+    tst.push(new THREE.BoxGeometry(1.05, 0.16, 0.05).translate(0, 0.2, -1.1), new THREE.BoxGeometry(1.0, 0.04, 0.32).translate(0, 0.1, -0.94));
+    cv.push(new THREE.CylinderGeometry(0.11, 0.11, 0.8, 8).rotateZ(Math.PI / 2).translate(0, 0.25, -0.92), new RoundedBoxGeometry(0.3, 0.18, 0.22, 1, 0.04).translate(0.62, 0.95, 0.75));
+  }
+  if (o.boss) {
+    for (const sx of [-1, 1]) { paint.push(new RoundedBoxGeometry(0.42, 0.4, 0.9, 1, 0.06).translate(sx * 1.45, 0.8, 0.45)); hst.push(cylZ(0.07, 0.08, 0.7, 8, 0.85, 1.1).translate(sx * 1.45, 0, 0)); } // 側面の副砲
+    for (let i = 0; i < 3; i++) hgl.push(new THREE.BoxGeometry(0.12, 0.04, 0.6).translate(-0.3 + i * 0.3, 1.17, -0.75)); // 機関室の光る排熱口
+    if (o.boss === 2) for (let i = 0; i < 5; i++) hst.push(new THREE.CylinderGeometry(0, 0.13, 0.45, 4).rotateX(Math.PI / 2).translate(-1.2 + i * 0.6, 0.6, 2.05)); // 排土板の棘
+    if (o.boss === 3) { for (const sx of [-1, 1]) { tst.push(new THREE.BoxGeometry(0.36, 0.32, 0.66).translate(sx * 0.98, 0.26, 0.05)); for (const dx of [-0.08, 0.08]) for (const dy of [0.18, 0.34]) tgl.push(new THREE.BoxGeometry(0.09, 0.09, 0.04).translate(sx * 0.98 + dx, dy, 0.4)); } // ミサイル
+      tst.push(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 5).translate(0.42, 0.75, -0.55), new THREE.BoxGeometry(0.42, 0.04, 0.2).rotateX(-0.5).translate(0.42, 1.15, -0.55)); } // レーダー
+  }
+  return { paint, steel, rubber, tur, brl, Y, L, hst, tst, cv, hgl, tgl };
 }
 const cleatG = () => new THREE.BoxGeometry(0.46, 0.07, 0.15);
 // 敵用: 1つにまとめたジオメトリ（インスタンス描画）。履帯の板は止まったまま。part: 'body'（車体）/ 'tur'（砲塔と砲身、原点で回る）/ 省略で全部
 export function tankGeo(hex, o = {}) {
   const P = tankParts(Object.assign({ eye: true }, o)), out = { pos: [], nor: [], col: [] }, c = new THREE.Color(), nc = o.lite ? 12 : 20, B = o.part !== 'tur', T = o.part !== 'body';
   const sc = o.scale || 1, add = (list, col, dy) => { for (const g of list) { if (dy) g.translate(0, dy, 0); g.scale(sc, sc, sc); pushGeo(out, g, c.set(col)); } };
-  if (B) { add(P.paint, hex); add(P.steel, 0x2b2e33); const cl = []; for (const sx of [-0.98, 0.98]) for (let i = 0; i < nc; i++) { loop(i / nc, lp); cl.push(cleatG().rotateX(lp.a).translate(sx, lp.y, lp.z)); } add(cl, 0x17181b); }
+  if (B) { add(P.paint, hex); add(P.steel, 0x2b2e33); add(P.hst, 0x2b2e33); for (const g of P.hgl) { g.scale(sc, sc, sc); pushGeo(out, g, c.setRGB(5, 1.2, 0.3)); } const cl = []; for (const sx of [-0.98, 0.98]) for (let i = 0; i < nc; i++) { loop(i / nc, lp); cl.push(cleatG().rotateX(lp.a).translate(sx, lp.y, lp.z)); } add(cl, 0x17181b); }
   if (T) {
-    add(P.tur, o.tur || hex, P.Y); add(P.brl, 0x2b2e33, P.Y);
+    add(P.tur, o.tur || hex, P.Y); add(P.brl, 0x2b2e33, P.Y); add(P.tst, 0x2b2e33, P.Y); add(P.cv, 0x6f6448, P.Y); for (const g of P.tgl) { g.translate(0, P.Y, 0); g.scale(sc, sc, sc); pushGeo(out, g, c.setRGB(5, 0.5, 0.4)); }
     const gl = []; if (o.crown) for (const x of [-0.4, 0, 0.4]) gl.push(new THREE.BoxGeometry(0.16, x ? 0.3 : 0.42, 0.16).translate(x, P.Y + 0.6, -0.3)); gl.push(new THREE.BoxGeometry(0.66, 0.1, 0.06).translate(0, P.Y + 0.3, 0.74));
     for (const g of gl) { g.scale(sc, sc, sc); pushGeo(out, g, c.setRGB(5, 0.7, 0.3)); }
   }
   return finish(out);
 }
-const merged = (list, hex) => { const o = { pos: [], nor: [], col: [] }, c = new THREE.Color(hex); for (const g of list) pushGeo(o, g, c); return finish(o); };
+const merged = (list, hex) => mergedC([[list, hex]]);
+const mergedC = sets => { const o = { pos: [], nor: [], col: [] }, c = new THREE.Color(); for (const [list, hex] of sets) { c.set(hex); for (const g of list) pushGeo(o, g, c); } return finish(o); };
 const NC = 26;
 // 自機用: 砲塔が回り、履帯が動き、車体が傾くモデル
 export function mkTank(hex, sc = 1, o = {}) {
   const P = tankParts(o), g = new THREE.Group(), tilt = new THREE.Group(), tur = new THREE.Group();
   const pm = patch(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.25, roughness: 0.6 }), { detail: 2 }), sm = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.85, roughness: 0.42 }), rm = new THREE.MeshStandardMaterial({ color: 0x17181b, metalness: 0.3, roughness: 0.75 });
-  const body = new THREE.Mesh(merged(P.paint, hex), pm), wheels = new THREE.Mesh(merged(P.steel, 0x2b2e33), sm), tm = new THREE.Mesh(merged(P.tur, hex), pm), brl = new THREE.Mesh(merged(P.brl.concat([new THREE.CylinderGeometry(0.012, 0.012, 1.3, 5).translate(-0.5, 1.05, -0.6)]), 0x2b2e33), sm);
+  const body = new THREE.Mesh(mergedC([[P.paint, hex], [P.hst, 0x2b2e33]]), pm), wheels = new THREE.Mesh(merged(P.steel, 0x2b2e33), sm), tm = new THREE.Mesh(mergedC([[P.tur, hex], [P.tst, 0x2b2e33], [P.cv, 0x6f6448]]), pm), brl = new THREE.Mesh(merged(P.brl.concat([new THREE.CylinderGeometry(0.012, 0.012, 1.3, 5).translate(-0.5, 1.05, -0.6)]), 0x2b2e33), sm);
   const cl = new THREE.InstancedMesh(cleatG(), rm, NC * 2); cl.frustumCulled = false;
   for (const m of [body, wheels, tm, brl, cl]) { m.castShadow = true; m.receiveShadow = true; }
   for (const sx of [-0.45, 0.45]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 1.6) })); l.position.set(sx, 0.78, 1.32); body.add(l); }
@@ -157,6 +178,8 @@ export function mkTank(hex, sc = 1, o = {}) {
   tur.position.y = P.Y; tur.add(tm); tur.add(brl); tilt.add(body); tilt.add(tur); g.add(tilt); g.add(wheels); g.add(cl); g.scale.setScalar(sc); scene.add(g);
   const t = { g, tilt, tur, brl, cl, off: 0, sc }; moveTracks(t, 0); return t;
 }
+// 自機が倒されたとき: 焦げて黒くなる（on=false で元の色）
+export function charTank(t, on) { t.g.traverse(m => { const mt = m.material; if (!mt || !mt.color) return; const c0 = mt.userData.c0 || (mt.userData.c0 = mt.color.clone()); mt.color.copy(c0); if (on) mt.color.multiplyScalar(0.1); }); }
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V3 = new THREE.Vector3(), SC = new THREE.Vector3(1, 1, 1), EU = new THREE.Euler();
 export function moveTracks(t, d) {
   t.off += d / t.sc / TPER; let n = 0;
@@ -259,12 +282,19 @@ export function applyTheme(th, feat) {
   setGrass(th); setWater(feat); sea.visible = !!th.sea; outer.visible = !th.sea;
   if (th.dust !== undefined) DUST = rgb(th.dust).map(v => v * 0.9);
 }
+let intro = 0; const INTRO = 1.8;
+let pose = null; export function camPose(o) { pose = o || null; } // 掲載画像の撮影用: カメラの位置と注視点を固定する
+export function camIntro(on = true) { intro = on ? INTRO : 0; }
 export function addShake(a) { shake = Math.min(1.2, shake + a); }
 export function camUpdate(px, pz, dt, snap, stiff = 7) {
   const k = snap ? 1 : 1 - Math.exp(-stiff * dt); cx += (px - cx) * k; cz += (pz - cz) * k;
   const H = camera.aspect >= 1 ? 27 : 40; shake *= Math.exp(-9 * dt);
   const sx = (R() - 0.5) * shake, sz = (R() - 0.5) * shake;
-  camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz);
+  if (pose) { camera.position.set(...pose.p); camera.lookAt(...pose.t); } else if (intro > 0) { // 出撃: 戦車の斜め後ろの低い位置から、いつもの見下ろしの位置まで回り込みながら上がる
+    intro = Math.max(0, intro - dt); const f = 1 - intro / INTRO, e = f < 0.5 ? 4 * f * f * f : 1 - Math.pow(2 - 2 * f, 3) / 2;
+    const d = lerp(H * 0.36, Math.hypot(H, H * 0.52), e), el = lerp(0.36, Math.atan2(H, H * 0.52), e), az = lerp(2.5, 0, e);
+    camera.position.set(cx + Math.sin(az) * Math.cos(el) * d + sx, Math.sin(el) * d, cz + Math.cos(az) * Math.cos(el) * d + sz); camera.lookAt(cx + sx, lerp(1.1, 0, e), cz + lerp(0, -1, e) + sz);
+  } else { camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz); }
   const tx = Math.round(cx), tz = Math.round(cz); light.position.set(tx + SUN.x * 70, SUN.y * 70, tz + SUN.z * 70); light.target.position.set(tx, 0, tz); light.target.updateMatrixWorld();
   U.tank.value.set(px, 0, pz);
 }
@@ -417,6 +447,13 @@ export function fxExplode(x, z, Rr) {
   if (k >= 0.6) for (let i = 0, n = Math.round((5 + 5 * k) * lo); i < n; i++) { const a = i / n * 6.283 + rr(-0.2, 0.2), s = rr(6, 9) * sk; emit(PS, x + Math.cos(a) * 0.6 * k, 0.35, z + Math.sin(a) * 0.6 * k, Math.cos(a) * s, rr(0.2, 0.8), Math.sin(a) * s, rr(0.6, 1.0), 0.6 * k, rr(1.8, 2.6) * k, DUST, DUST, 0.4, 0, 4); }
   for (let i = 0; i < 10 * k * lo; i++) { const a = R() * 6.283, s = rr(6, 17); emit(PA, x, 0.8, z, Math.cos(a) * s, rr(4, 13), Math.sin(a) * s, rr(0.4, 0.9), 0.22, 0.05, SPK0, SPK1, 1, 26, 0.6); }
   for (let i = 0; i < (3 + 4 * k) * lo; i++) emit(PA, x + rr(-0.6, 0.6) * k, rr(0.6, 1.6), z + rr(-0.6, 0.6) * k, rr(-2.5, 2.5) * sk, rr(3, 7), rr(-2.5, 2.5) * sk, rr(1, 1.9), 0.16, 0.05, EMB0, EMB1, 1, 3.2, 0.9);
+}
+// 撃破の上乗せ: 大きな閃光、真上に噴き上がる炎の柱と火の粉、白い衝撃の輪。k は大きさ（爆発の半径 / 3）
+export function fxBlast(x, z, k) {
+  const lo = lot(); flash(x, z, 9 * k, 0xffc070);
+  emit(PA, x, 1.4, z, 0, 0, 0, 0.13, 2.4 * k, 4.2 * k, [2.5, 1.45, 0.5], [1.8, 0.6, 0.1], 0.75);
+  for (let i = 0; i < (6 + 5 * k) * lo; i++) { const a = R() * 6.283, s = rr(0.3, 1.8); emit(PA, x + Math.cos(a) * 0.3, rr(0.8, 1.5), z + Math.sin(a) * 0.3, Math.cos(a) * s, rr(7, 13) * Math.sqrt(k), Math.sin(a) * s, rr(0.35, 0.6), rr(1.0, 1.6) * k, 0.25, FIRE0, FIRE1, 0.55, 9, 1.5); }
+  for (let i = 0; i < (8 + 6 * k) * lo; i++) { const a = R() * 6.283, s = rr(2, 7); emit(PA, x, 1.2, z, Math.cos(a) * s, rr(8, 16), Math.sin(a) * s, rr(0.7, 1.4), 0.2, 0.05, EMB0, EMB1, 1, 16, 0.6); }
 }
 // 倒した敵の残骸から上がる煙と小さな炎。t は倒してからの秒数
 export function fxWreck(x, z, t, big) {
