@@ -10,7 +10,10 @@ CrazyGames のフルローンチを目指す見下ろし型ローグライト戦
 ## 出し先
 - `node build.mjs site` → `dist/index.html`（Cloudflare Pages 用。計測は `/api/ev` へ送る。受け口は `functions/api/ev.js`、表は `schema.sql`、D1 を `DB` という名前でつなぐ）
 - `node build.mjs cg` → `dist/cg/index.html`（CrazyGames 用。SDK v3 を読み込み、進捗は SDK のデータ保存、gameplayStart/Stop、loadingStart/Stop、happytime、muteAudio に対応。提出時は「Progress Save」を選ぶ）
-- 計測の送り先は `EV_URL=https://… node build.mjs cg` で変えられる（空なら送らない。cg は既定で送らない）
+- `node build.mjs cg` は提出用の `dist/scrap-tankers-cg.zip`（index.html 1枚）も作る
+- 計測の送り先は `EV_URL=https://… node build.mjs cg` で変えられる（空なら送らない）。cg は既定で公開版の受け口 `https://scrap-tankers.pages.dev/api/ev` へ送り、`tg=cg` で区別する。集計ページは `?tg=cg`（CrazyGames だけ）/ `?tg=site`（公開版だけ）
+- タブ切り替えや画面外へのフォーカス移動で自動の一時停止をしたときは、CrazyGames の決まりで gameplayStop を送らない（Esc や一時停止ボタンでは送る）
+- 紹介動画: `node build.mjs site && PW=… COVERS=<掲載画像のフォルダ> OUT=<出力先> sh tools/promo.sh` で横 1920x1080 と縦 1080x1620（約18秒、無音）。場面は tools/promo.mjs の `SCENES`
 - 公開版（事前テスト）: https://scrap-tankers.pages.dev/ 。集計ページは `/stats`（`?days=1|7|30`。Pages の環境変数 `STATS_KEY` を入れると `?k=…` が必要になる）。`node test/stats.mjs` で受け口と集計を確認
 - 計測イベント: load（ロード時間 ms）/ start / move / kill / lvl / end（負けた波と場所）/ win / again / buy / part / equip / tab / t60 / t180 / t600 / leave
 

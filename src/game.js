@@ -348,7 +348,7 @@ export function pickUp(i) {
   if (G.pend > 0) openLevelUp(); else G.state = 'play';
 }
 // 基地に戻る（一時停止の画面から）: 出撃をやめて結果とガレージへ。集めたスクラップは持ち帰り、やられたわけではないので連敗の数には入れない
-export function retreat() { if (G.state !== 'play') return false; G.home = true; showResult(); return true; } // SDK の gameplayStop は一時停止のときに済んでいる
+export function retreat() { if (G.state !== 'play') return false; G.home = true; platform.gameplayStop(); showResult(); return true; } // 自動の一時停止からだと gameplayStop がまだなのでここで送る（2回目は platform が無視する）
 function showResult() {
   MT.loginTick(); const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
   let unl = []; bank(); save.lose = G.won ? null : G.home ? save.lose : { s: G.stage, n: (save.lose && save.lose.s === G.stage ? save.lose.n : 0) + 1 }; if (G.won) { save.stage++; if (save.stage > save.best) { save.best = save.stage; unl = MT.unlockedAt(save.best); } } persist();

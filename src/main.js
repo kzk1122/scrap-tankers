@@ -21,10 +21,11 @@ function tick(dt, doRender) {
 let last = 0, shown = false;
 // ---- 一時停止: 画面の外をクリック、タブ切り替え、Esc、P、右上のボタン。再開はクリック・タップか Enter / Space / P ----
 let pzAt = 0, pzF = 0;
-function pause() {
+// auto: タブ切り替えや画面外へのフォーカス移動で止めたとき。CrazyGames の決まりで、このときは gameplayStop を送らない
+function pause(auto) {
   if (G.paused || G.state !== 'play') return;
   G.paused = true; G.pzN++; pzAt = performance.now(); I.sp = false;
-  setLock(false); audioPause(true); platform.gameplayStop(); showPause(true, I.touch, resume, goHome);
+  setLock(false); audioPause(true); if (auto !== true) platform.gameplayStop(); showPause(true, I.touch, resume, goHome);
 }
 function resume() {
   if (!G.paused || performance.now() - pzAt < 250) return; // 止めた操作がそのまま再開にならないように
@@ -34,7 +35,7 @@ function resume() {
 function goHome() { // 一時停止の画面の「基地に戻る」
   if (!G.paused) return; G.paused = false; I.sp = false; showPause(false); audioPause(document.hidden); retreat();
 }
-const autoPause = () => { if (!T.manual && !I.ext) pause(); }; // 自動テストのボットは止めない
+const autoPause = () => { if (!T.manual && !I.ext) pause(true); }; // 自動テストのボットは止めない
 function frame(now) {
   requestAnimationFrame(frame);
   try {
@@ -53,10 +54,10 @@ async function boot() {
     window.addEventListener('keydown', e => { // 入力処理より先に受け取り、再開のキーで必殺技や移動が出ないようにする
       if (e.repeat) return; const k = e.key;
       if (G.paused) { if (k === 'Enter' || k === ' ' || k === 'p' || k === 'P') { e.preventDefault(); e.stopImmediatePropagation(); resume(); } }
-      else if (k === 'Escape' || k === 'p' || k === 'P') pause();
+      else if (k === 'Escape' || k === 'p' || k === 'P') pause(false);
     });
-    initGfx(document.getElementById('c')); setView(save.view); initUi(); initGame(); initInput(audioInit, autoPause);
-    document.getElementById('pz').addEventListener('click', e => { e.stopPropagation(); pause(); });
+    initGfx(document.getElementById('c')); setView(save.view); initUi(); initGame(); initInput(audioInit, () => { if (!T.manual && !I.ext) pause(document.hidden || !document.hasFocus()); }); // Esc でマウスの固定を外したのは本人の操作なので通常の一時停止
+    document.getElementById('pz').addEventListener('click', e => { e.stopPropagation(); pause(false); });
     window.addEventListener('blur', autoPause);
     welcomeOrStart();
     if (TARGET === 'artifact') window.addEventListener('tk-nextday', () => { const S = save; if (S.login) S.login.day--; if (S.supply) S.supply.day--; welcomeOrStart(); }); // 試作版だけ: 翌日の再訪を試す
