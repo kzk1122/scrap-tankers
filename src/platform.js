@@ -1,6 +1,6 @@
 // 出し先ごとの違いはここだけに置く。cg = CrazyGames SDK v3（読み込みは build.mjs が <head> に入れる）
 import { TARGET, KEY, hydrate, persist, onPersist } from './core.js';
-let sdk = null, muteCb = null;
+let sdk = null, muteCb = null, playing = false; // playing: SDK に最後に伝えた状態（同じ通知を2回送らない）
 const call = f => { try { if (sdk) return f(sdk); } catch (e) { /* SDK が止まっていても遊べる */ } };
 const wait = (p, ms) => Promise.race([p, new Promise(r => setTimeout(r, ms))]);
 export const platform = {
@@ -22,8 +22,8 @@ export const platform = {
     } catch (e) { sdk = null; }
   },
   loaded() { call(s => s.game.loadingStop()); },
-  gameplayStart() { call(s => s.game.gameplayStart()); },
-  gameplayStop() { call(s => s.game.gameplayStop()); },
+  gameplayStart() { if (playing) return; playing = true; call(s => s.game.gameplayStart()); },
+  gameplayStop() { if (!playing) return; playing = false; call(s => s.game.gameplayStop()); },
   happyTime() { call(s => s.game.happytime()); },
   // サイト側の「音を消す」設定。ゲーム内の音ボタンより優先する
   muted() { return !!call(s => s.game.settings && s.game.settings.muteAudio); },

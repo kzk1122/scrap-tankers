@@ -39,6 +39,7 @@ const play = p => p.evaluate(() => { const T = __tk; T.q(4); T.manual(true); T.i
       game: { settings: { muteAudio: true }, gameplayStart: c('gameplayStart'), gameplayStop: c('gameplayStop'), happytime: c('happytime'), loadingStart: c('loadingStart'), loadingStop: c('loadingStop'), addSettingsChangeListener: f => __cg.ls.push(f) },
       data: { getItem: k => __cg.data[k] || null, setItem: (k, v) => { __cg.data[k] = v; __cg.calls.push('setItem'); } },
       user: { getUser: async () => ({ username: 'Tester', profilePictureUrl: '' }) } } };` }));
+  const cgPosts = []; await p.route('https://scrap-tankers.pages.dev/api/ev', r => { try { cgPosts.push(JSON.parse(r.request().postData())); } catch (e) { /* noop */ } r.fulfill({ body: 'ok' }); });
   await p.goto(root + 'cg/index.html'); await p.waitForTimeout(1500);
   const s = await p.evaluate(() => ({ scrap: __tk.save.scrap, stage: __tk.save.stage, tur: __tk.save.parts.turret, paint: __tk.save.parts.paint, calls: __cg.calls.slice(), muted: __tk.platform.muted(), user: __tk.platform.user }));
   ok(s.scrap === 797 && s.stage === 3 && s.tur === 'twin' && s.paint === 'orange', 'save loaded from SDK data (+20 login reward) ' + JSON.stringify([s.scrap, s.stage, s.tur]));
@@ -48,13 +49,16 @@ const play = p => p.evaluate(() => { const T = __tk; T.q(4); T.manual(true); T.i
   ok(s.muted && s.user && s.user.name === 'Tester', 'muteAudio respected, user read');
   const pc = await p.evaluate(() => { const n = __cg.calls.length; __tk.pause(); __tk.resume(); return __cg.calls.slice(n).join(','); });
   ok(pc === 'gameplayStop,gameplayStart', 'pause/resume tells the SDK: ' + pc);
+  const ap = await p.evaluate(() => { if (__tk.state().paused) __tk.resume(); const n = __cg.calls.length; __tk.pause(true); const q = __tk.state().paused; __tk.resume(); return [q, __cg.calls.slice(n).join(',')]; });
+  ok(ap[0] && ap[1] === '', 'auto pause (tab switch / focus loss) pauses the game but sends no gameplayStop: ' + JSON.stringify(ap));
   await play(p); const c2 = await p.evaluate(() => ({ calls: __cg.calls, saved: JSON.parse(__cg.data.scrap_tankers_v1).runs }));
+  await p.waitForTimeout(400); ok(cgPosts.length && cgPosts.every(x => x.tg === 'cg'), 'cg build sends metrics to the Pages endpoint, tagged cg (' + cgPosts.length + ' posts)');
   ok(c2.calls.includes('gameplayStop') && c2.calls.includes('setItem') && c2.saved >= 10, 'gameplayStop + progress written to SDK (runs ' + c2.saved + ')');
   ok(!errs.length, 'cg no errors ' + errs.join('|')); await p.close();
 }
 { // 3) cg ビルドを CrazyGames の外で開いても（SDK 無効・読み込み失敗）遊べる
   const p = await b.newPage({ viewport: { width: 900, height: 600 } }); const errs = [];
-  p.on('pageerror', e => errs.push(e.message)); await p.route('https://sdk.crazygames.com/**', r => r.abort());
+  p.on('pageerror', e => errs.push(e.message)); await p.route('https://sdk.crazygames.com/**', r => r.abort()); await p.route('https://scrap-tankers.pages.dev/**', r => r.fulfill({ body: 'ok' }));
   await p.goto(root + 'cg/index.html'); await p.waitForTimeout(1200);
   ok((await p.evaluate(() => __tk.state().state)) === 'play' && !errs.length, 'cg build runs without the SDK'); await p.close();
 }

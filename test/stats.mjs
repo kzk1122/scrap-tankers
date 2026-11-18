@@ -23,6 +23,12 @@ ok(/おかえり」画面: PC 表示 1・そこから出撃 1 ／ スマホ 表�
   ok(/2099-01-01 以降/.test(fut) && /ロード完了 0 — 0 —/.test(fut) && /ロード完了 2 100\.0% 1 100\.0%/.test(past) && /ロード完了 0 — 0 —/.test(envd), 'from= hides earlier events (also via STATS_FROM)');
   ok(/days=7&amp;from=2099-01-01|days=7&from=2099-01-01/.test(await (await onRequestGet({ request: new Request('http://x/stats?from=2099-01-01'), env: { DB } })).text()), 'period links keep from=');
 }
+{ // ?tg=cg は CrazyGames 版だけ、?tg=site は公開版だけ
+  await post({ id: 'c1', sid: 'c1s', tg: 'cg', dev: 'm', lang: 'en', day: 0, run: 0, evs: [{ n: 'load', t: 0.2, ms: 800 }, { n: 't60', t: 60 }] });
+  const t = async q => (await (await onRequestGet({ request: new Request('http://x/stats' + q), env: { DB } })).text()).replace(/<style>.*?<\/style>/s, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const cg = await t('?tg=cg'), site = await t('?tg=site'), all = await t('');
+  ok(/ロード完了 0 — 1 100\.0%/.test(cg) && /ロード完了 2 100\.0% 1 100\.0%/.test(site) && /ロード完了 2 100\.0% 2 100\.0%/.test(all), 'tg= filters by where it was played');
+}
 ok((await onRequestGet({ request: new Request('http://x/stats'), env: { DB, STATS_KEY: 'abc' } })).status === 403, 'key required when STATS_KEY is set');
 if (process.argv[2]) (await import('node:fs')).writeFileSync(process.argv[2], html);
 process.exit(fail ? 1 : 0);
