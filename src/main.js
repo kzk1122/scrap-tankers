@@ -6,8 +6,9 @@ import { initInput, pollInput, setLock, relock, I } from './input.js';
 import { audioInit, audioPause, musicState, forceMute } from './audio.js';
 import { platform } from './platform.js';
 import * as MX from './metrics.js';
+import * as W from './world.js';
 import { initUi, showPause, showWelcome } from './ui.js';
-import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, explode, spawnAt, retreat, G, P, TUNE } from './game.js';
+import { initGame, startRun, begin, update, draw, snapshot, toBoss, pickUp, bank, explode, spawnAt, retreat, G, P, TUNE, giveCars } from './game.js';
 
 const T = { manual: false, time: 0 };
 function tick(dt, doRender) {
@@ -70,7 +71,7 @@ async function boot() {
 }
 // ボットと確認用: 仮想時計で1フレームずつ進める
 window.__tk = {
-  manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, miss: missing, boss: toBoss, pick: pickUp, restart: startRun, save,
+  manual(v) { T.manual = v; }, P, ev: MX.log, platform, day: setDayOff, meta: MT, q(n) { if (n !== undefined) setQ(n, true); return quality(); }, music: musicState, seed, state: snapshot, miss: missing, boss: toBoss, cars: giveCars, clear(r, x = 0, z = 0) { for (const b of W.blocks) if (b.hp > 0 && (!r || Math.hypot(b.x - x, b.z - z) < r)) W.damageBlock(b, 1e9); }, pick: pickUp, restart: startRun, save,
   tune: TUNE, G, boom: explode, spawn: spawnAt, cam: camPose, view(v) { save.view = v ? 1 : 0; setView(v); }, intro: camIntro, snap() { camUpdate(P.x, P.z, 0, true, 7, P.ry); }, get camera() { return camera; }, I, input(o) { I.ext = o; }, pause, resume() { pzAt = 0; resume(); },
   step(n = 1, dt = 1 / 60, doRender = false) { for (let i = 0; i < n; i++) tick(dt, doRender && i === n - 1); return G.state; },
   home() { pzAt = 0; goHome(); }, go() { const b = document.getElementById('go'); if (b && b.onclick) { T.time += 1; } startRun(); },

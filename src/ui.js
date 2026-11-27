@@ -41,6 +41,7 @@ export function hud(d) {
   txt('wave', d.wave >= NWAVE ? 'BOSS' : 'WAVE ' + Math.max(1, d.wave + 1) + ' / ' + NWAVE);
   const s = d.t | 0; txt('time', jaEn('拠点 ', 'Base ') + d.stage + ' ' + d.place + '　' + ((s / 60) | 0) + ':' + String(s % 60).padStart(2, '0'));
   txt('scr', d.scrap);
+  { const k = d.cars + '/' + d.cap; if (cache.cars !== k) { cache.cars = k; const el = $('cars'); el.hidden = !d.cars; el.innerHTML = '<i class="on"></i>'.repeat(d.cars) + '<i></i>'.repeat(Math.max(0, d.cap - d.cars)); } } // 列車の車両数
   const p = Math.round(Math.min(1, d.sp) * 50), rdy = d.sp >= 1; // 必殺技ゲージ
   if (cache.sp !== p) { cache.sp = p; $('sp').style.setProperty('--p', p * 2 + '%'); }
   if (cache.spr !== rdy) { cache.spr = rdy; $('sp').classList.toggle('ready', rdy); }
@@ -65,6 +66,8 @@ export function legend(show, lock) {
 export const ICON = {
   mouse: '<svg class="ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="7" y="3" width="10" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   drag: '<svg class="ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/><circle cx="15" cy="9" r="3.6" fill="currentColor"/><path d="M12 12l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/></svg>',
+  link: '<svg class="ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="13" y="8" width="9" height="8" rx="1.5" fill="currentColor"/><rect x="2" y="9" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12h5" stroke="currentColor" stroke-width="2" stroke-dasharray="2 1.5"/></svg>',
+  loop: '<svg class="ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M13 20a8 8 0 1 1 7-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="3 2"/><path d="M20 15l1.5-4M20 15l-4-.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="11" cy="12" r="2.6" fill="currentColor"/></svg>',
   aim: '<svg class="ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
 };
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; $('wel').hidden = true; pickCb = null; resH = null; }

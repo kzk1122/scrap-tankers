@@ -393,6 +393,8 @@ let dcv = null, dctx = null, dDirty = false; const DN = [], DV = new THREE.Vecto
 function initDmg(canvas) { dcv = document.createElement('canvas'); dcv.id = 'dmg'; dcv.setAttribute('aria-hidden', 'true'); dcv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; canvas.after(dcv); dctx = dcv.getContext('2d'); }
 // big: 会心など大きな一撃（黄色で大きく）。同じ敵への続けざまの命中は1つの数字にまとめる（呼ぶ側で n を足す）
 export function dmgNum(x, z, v, big) { if (DN.length >= 40) DN.shift(); const n = { x: x + rr(-0.35, 0.35), z, v: Math.max(1, Math.round(v)), t: 0, big: !!big, dx: rr(-0.5, 0.5) }; DN.push(n); return n; }
+// 文字の表示（列で囲んだときの「まとめて撃破」など）。数字より長く出す
+export function popText(x, z, txt, col = '#ffd23f', big = true) { if (DN.length >= 40) DN.shift(); DN.push({ x, z, v: txt, t: 0, big, dx: 0, L: 1.3, col }); }
 export function clearDmg() { DN.length = 0; }
 function drawDmg(dt) {
   if (!dctx || (!DN.length && !dDirty)) return;
@@ -401,11 +403,11 @@ function drawDmg(dt) {
   const g = dctx; g.setTransform(pr, 0, 0, pr, 0, 0); g.clearRect(0, 0, w, h); dDirty = DN.length > 0;
   const base = clamp(Math.min(w, h) / 34, 13, 22); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
   for (let i = DN.length - 1; i >= 0; i--) {
-    const n = DN[i]; n.t += dt; if (n.t > 0.75) { DN.splice(i, 1); continue; }
+    const n = DN[i], L = n.L || 0.75; n.t += dt; if (n.t > L) { DN.splice(i, 1); continue; }
     DV.set(n.x + n.dx * n.t, 2.0 + n.t * 2.2, n.z).project(camera); if (DV.z > 1) continue;
-    const sx = (DV.x * 0.5 + 0.5) * w, sy = (0.5 - DV.y * 0.5) * h, pop = n.t < 0.09 ? 1.45 - n.t * 5 : 1, sz = base * (n.big ? 1.55 : 1) * pop;
-    g.globalAlpha = n.t < 0.45 ? 1 : 1 - (n.t - 0.45) / 0.3;
-    g.font = `900 ${sz.toFixed(1)}px ui-rounded,"Arial Rounded MT Bold",system-ui,sans-serif`; g.lineWidth = sz * 0.22; g.strokeStyle = '#141a2e'; g.strokeText(n.v, sx, sy); g.fillStyle = n.big ? '#ffd23f' : '#ffffff'; g.fillText(n.v, sx, sy);
+    let sx = (DV.x * 0.5 + 0.5) * w; const sy = (0.5 - DV.y * 0.5) * h, pop = n.t < 0.09 ? 1.45 - n.t * 5 : 1, sz = base * (n.big ? 1.55 : 1) * pop;
+    g.globalAlpha = n.t < L - 0.3 ? 1 : 1 - (n.t - L + 0.3) / 0.3;
+    g.font = `900 ${sz.toFixed(1)}px ui-rounded,"Arial Rounded MT Bold",system-ui,sans-serif`; g.lineWidth = sz * 0.22; if (n.L) { const tw = g.measureText(n.v).width / 2 + 10; sx = clamp(sx, tw, Math.max(tw, w - tw)); } // 文字は画面からはみ出さないように g.strokeStyle = '#141a2e'; g.strokeText(n.v, sx, sy); g.fillStyle = n.col || (n.big ? '#ffd23f' : '#ffffff'); g.fillText(n.v, sx, sy);
   }
   g.globalAlpha = 1;
 }
