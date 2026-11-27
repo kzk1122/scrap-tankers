@@ -185,7 +185,8 @@ function recalc() {
 }
 // 調整値（ボットの試算から決めた。__tk.tune で試せる）。xq: レベルアップに要る経験値の伸び、hpX / dmX: 拠点3から上乗せする敵の体力と攻撃
 // as: 同じ拠点で負けるたびに敵の体力と攻撃を下げる割合（最大 asMax 回ぶん。勝てば戻る）
-export const TUNE = { horde: 2.0, xq: 0.55, hpX: 0.28, dmX: 0.05, e12: 0.92, as: 0.1, asMax: 5 };
+// horde: 小型の数の倍率、small: 小型（ドローン・突撃車）の体力の倍率（射撃だけでは溶けず、群れがたまって「囲む」の出番ができる）、carDm: 車両の射撃の倍率、wrapT: 「囲む」のゲージが時間だけで満タンになる秒数
+export const TUNE = { horde: 2.5, small: 3, carDm: 0.6, wrapT: 7, xq: 0.55, hpX: 0.28, dmX: 0.05, e12: 0.92, as: 0.1, asMax: 5 };
 const need = l => 4 + 3 * (l - 1) + TUNE.xq * (l - 1) * (l - 1);
 
 // hold: 「おかえり」画面の裏で戦場だけ用意し、出撃ボタンで begin() するまで止めておく
@@ -223,9 +224,10 @@ function startWave(i) {
   UI.banner('WAVE ' + (i + 1) + ' / ' + NWAVE); if (i > 0) sfx.wave();
 }
 export function spawnAt(k, x, z, ry = 0) { spawn(k); const e = E[E.length - 1]; e.x = x; e.z = z; e.ry = e.ta = ry; e.born = 1; e.drop = 0; H.length = 0; return e; } // 掲載画像の撮影用
+const smallM = () => 1 + (TUNE.small - 1) * Math.min(1, (Math.max(0, G.wave) + 1) / 3); // 小型の硬さは最初の2つの波で少しずつ上げる
 function spawn(k) {
   const d = ET[k], a = rnd() * 6.283, dist = d.boss ? 8.5 : rr(19, 26); // ボスは画面の中（自機から少し離れた所）に降りる
-  const e = { k, x: clamp(P.x + Math.cos(a) * dist, -W.A + 2, W.A - 2), z: clamp(P.z + Math.sin(a) * dist, -W.A + 2, W.A - 2), hp: d.hp * G.hpM, max: d.hp * G.hpM, r: d.r, ry: 0, kx: 0, kz: 0, cd: rr(1, 2.5), hc: 0, hitT: 0, born: 0, dead: false, c2: 4, strafe: rnd() < 0.5 ? 1 : -1, mv: null, mi: 0, rest: 1.6, hold: 0, dash: 0 };
+  const e = { k, x: clamp(P.x + Math.cos(a) * dist, -W.A + 2, W.A - 2), z: clamp(P.z + Math.sin(a) * dist, -W.A + 2, W.A - 2), hp: d.hp * G.hpM * (k === 0 || k === 4 ? smallM() : 1), max: d.hp * G.hpM * (k === 0 || k === 4 ? smallM() : 1), r: d.r, ry: 0, kx: 0, kz: 0, cd: rr(1, 2.5), hc: 0, hitT: 0, born: 0, dead: false, c2: 4, strafe: rnd() < 0.5 ? 1 : -1, mv: null, mi: 0, rest: 1.6, hold: 0, dash: 0 };
   if (!d.boss && Math.hypot(e.x - P.x, e.z - P.z) < 12) { e.x = clamp(P.x - Math.cos(a) * dist, -W.A + 2, W.A - 2); e.z = clamp(P.z - Math.sin(a) * dist, -W.A + 2, W.A - 2); }
   if (d.boss) { e.drop = DROP; H.push({ x: e.x, z: e.z, t: 0, T: DROP, r: e.r * 1.5, dmg: d.dmg }); } // ボスは予告円の上に空から降ってくる
   E.push(e); if (d.boss) { G.boss = e; UI.setBoss(1); }
@@ -346,7 +348,7 @@ function updTrain(dt, live) {
   for (let i = SV.length - 1; i >= 0; i--) { const v = SV[i]; v.t += dt; if (v.t > 14) { SV.splice(i, 1); continue; } if (live && (P.x - v.x) ** 2 + (P.z - v.z) ** 2 < 2.5 * 2.5) { SV.splice(i, 1); attach(v); } }
   if (!CARS.length) return;
   const sl = CARS.map((c, i) => GAP0 + GAP * i), pts = []; trailAt(sl, pts);
-  const k = 1 - Math.exp(-14 * dt), cf = 1 + 0.2 * (u.carfire || 0);
+  const k = 1 - Math.exp(-14 * dt), cf = 1 + 0.2 * (u.carfire || 0), cdm = cf * TUNE.carDm;
   for (let i = 0; i < CARS.length; i++) {
     const c = CARS[i], p = pts[i]; c.x += (p[0] - c.x) * k; c.z += (p[1] - c.z) * k; c.ry = angLerp(c.ry, p[2], k); if (c.hitT > 0) c.hitT -= dt;
     const d = CT[c.k]; if (!live || !d.rng) { c.ta = angLerp(c.ta, c.ry, k); continue; }
@@ -355,7 +357,7 @@ function updTrain(dt, live) {
     if (c.cd <= 0) { // 近い敵を探して撃つ
       let best = null, bd = d.rng * d.rng; for (const e of E) { if (e.dead || e.drop > 0) continue; const q = (e.x - c.x) ** 2 + (e.z - c.z) ** 2; if (q < bd) { bd = q; best = e; } }
       c.tg = best;
-      if (best) { c.cd = d.cd; const a = Math.atan2(best.x - c.x, best.z - c.z), m = d.hl + 0.4; c.ta = a; bullet(c.x + Math.sin(a) * m, c.z + Math.cos(a) * m, a, false, S.dmg * d.dm * cf, d.spd, d.life); fxMuzzle(c.x + Math.sin(a) * m, c.z + Math.cos(a) * m, a); if (c.k === 1) sfx.shot(); }
+      if (best) { c.cd = d.cd; const a = Math.atan2(best.x - c.x, best.z - c.z), m = d.hl + 0.4; c.ta = a; bullet(c.x + Math.sin(a) * m, c.z + Math.cos(a) * m, a, false, S.dmg * d.dm * cdm, d.spd, d.life); fxMuzzle(c.x + Math.sin(a) * m, c.z + Math.cos(a) * m, a); if (c.k === 1) sfx.shot(); }
       else c.cd = 0.2;
     }
     c.ta = angLerp(c.ta, c.tg ? Math.atan2(c.tg.x - c.x, c.tg.z - c.z) : c.ry, 1 - Math.exp(-10 * dt));
@@ -435,7 +437,7 @@ function hurtE(e, d, kx, kz, big) {
   if (e.hp <= 0) kill(e);
 }
 function kill(e) { // 列で囲んで倒すと歯車が倍、スクラップ +1
-  e.dead = true; const d = ET[e.k]; if (e.crush && !d.boss) { K.push({ x: e.x, z: e.z, v: d.xp, t: 0, heal: false, vac: false }); G.scrap++; } G.kills++; if (!d.boss && !e.crush) charge(d.xp * 0.035 * (CARS.length >= 2 ? 3 : 1)); once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
+  e.dead = true; const d = ET[e.k]; if (e.crush && !d.boss) { K.push({ x: e.x, z: e.z, v: d.xp, t: 0, heal: false, vac: false }); G.scrap++; } G.kills++; if (!d.boss && !e.crush) charge(d.xp * 0.035 * (CARS.length >= 2 ? 1.5 : 1)); once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
   const bs = !!d.boss, big = bs || e.k === 2, sm = e.k === 0 || e.k === 4;
   const R = sm ? 2.5 : bs ? 6 : e.k === 2 || e.k === 5 ? 3.8 : 3; // 爆発の大きさ（倒した手応えが出るよう、敵の見た目より大きめ）
   burst(e.x, 0.8, e.z, sm ? 12 : bs ? 46 : 18, d.col, big ? 12 : 10, bs ? 0.4 : big ? 0.34 : 0.26, 0.8, 1.3, 0.35);
@@ -551,6 +553,7 @@ export function update(dt) {
   else { music('calm'); musicVol(0.45); }
   // ---- 自機 ----
   if (live && G.wrap) updWrap(dt);
+  if (live && CARS.length >= 2 && !G.wrap && G.sp < 1) G.sp = Math.min(1, G.sp + dt / TUNE.wrapT); // 列車があれば「囲む」は時間でもたまる
   if (live) {
     const wet = W.inWater(P.x, P.z), spd = S.speed * (wet ? 0.62 : 1);
     if (!G.wrap) { const k = 1 - Math.exp(-(I.touch ? 14 : I.mx || I.mz ? 30 : 13) * dt); P.vx += (I.mx * spd - P.vx) * k; P.vz += (I.mz * spd - P.vz) * k; } // 囲んでいる間は自動で回る
