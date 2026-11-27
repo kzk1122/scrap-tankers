@@ -14,6 +14,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:8
 #hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;gap:8px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));text-shadow:0 2px 0 rgba(11,18,36,.55)}
 .top{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:10px}
 .hpw{display:flex;flex-direction:column;gap:3px;max-width:240px;min-width:0}
+.cars{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px}.cars i{width:12px;height:7px;border-radius:2px;background:rgba(255,255,255,.22);box-shadow:0 1px 0 rgba(11,18,36,.5)}.cars i.on{background:#ffd23f}
 .bar{height:16px;border-radius:9px;background:var(--dark);border:2px solid var(--dark);overflow:hidden;box-shadow:0 2px 0 rgba(11,18,36,.4)}
 .bar i{display:block;height:100%;width:100%;border-radius:6px;transition:width .12s linear}
 .bar.hp i{background:var(--hp)}.bar.hp.warn i{background:var(--warn)}.bar.hp.crit i{background:var(--bad)}.bar.hp.crit{animation:crit .5s ease-in-out infinite alternate}
@@ -60,6 +61,7 @@ body.kbd .ib[data-k]::after{content:attr(data-k);position:absolute;right:0;botto
 #sp{--p:0%;pointer-events:auto;touch-action:none;width:72px;height:72px;border-radius:50%;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:radial-gradient(circle,#18203c 0 58%,transparent 60%),conic-gradient(#8fe3ff var(--p),rgba(20,28,54,.85) 0);box-shadow:0 3px 0 rgba(11,18,36,.5);opacity:.75;text-shadow:none}
 #sp b{font-size:15px;letter-spacing:.05em}#sp small{font-size:9px;color:var(--dim);letter-spacing:.08em}
 #sp.ready{opacity:1;background:radial-gradient(circle,#ffb21e 0 58%,transparent 60%),conic-gradient(#fff3c4 100%,#fff3c4 0);color:#231400;animation:sppulse .7s ease-in-out infinite alternate}#sp.ready small{color:#5a3a00}
+#sp.fling.ready{width:86px;height:86px;background:radial-gradient(circle,#ffd23f 0 58%,transparent 60%),conic-gradient(#fff6cc 100%,#fff6cc 0)}#sp.fling.ready b{font-size:16px}
 @keyframes sppulse{from{transform:scale(1);box-shadow:0 0 0 0 rgba(255,178,30,.7)}to{transform:scale(1.1);box-shadow:0 0 0 12px rgba(255,178,30,0)}}
 #sptip{background:var(--panel);border:2px solid #ffb21e;border-radius:12px;padding:6px 12px;font-size:13px;text-shadow:none}
 @media (prefers-reduced-motion:reduce){#sp.ready{animation:none}}
@@ -149,7 +151,7 @@ body.kbd .ib[data-k]::after{content:attr(data-k);position:absolute;right:0;botto
   <div id="vig"></div>
   <div id="hud">
     <div class="top">
-      <div class="hpw"><div class="bar hp" id="hpbar"><i id="hpb"></i></div><div class="num" id="hpn"></div></div>
+      <div class="hpw"><div class="bar hp" id="hpbar"><i id="hpb"></i></div><div class="num" id="hpn"></div><div class="cars" id="cars" hidden></div></div>
       <div class="mid"><div id="wave"></div><div id="time"></div></div>
       <div class="right"><div class="scrap"><span class="nut"></span><span id="scr">0</span></div><button id="view" class="ib" data-k="V" aria-label="View"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 7.5h11a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 15V9A1.5 1.5 0 0 1 3 7.5zM17 10.5l5.5-3v9l-5.5-3z" fill="currentColor"/></svg></button><button id="pz" class="ib" data-k="P" aria-label="Pause"><i></i></button><button id="mute" class="ib" data-k="M" aria-label="Sound">♪</button></div>
     </div>
