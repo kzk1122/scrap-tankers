@@ -51,14 +51,22 @@ let touchUi = false;
 export function setBoss(f) { const w = $('bossw'); if (f < 0) { if (!w.hidden) w.hidden = true; return; } if (w.hidden) w.hidden = false; wid('bossb', f); }
 function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 export function banner(t, big) { const b = $('banner'); b.textContent = t; b.classList.toggle('big', !!big); replay(b, 'show'); }
+let logoT = 0;
+export function logo(tag) { const e = $('logo'); $('logot').textContent = tag; e.hidden = false; replay(e, 'show'); clearTimeout(logoT); logoT = setTimeout(() => { e.hidden = true; }, 3000); }
 export function toast(t) { const e = $('toast'); e.textContent = t; replay(e, 'show'); }
 export function vignette() { replay($('vig'), 'show'); }
 export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden = true; return; } if (cache.hint !== html) { cache.hint = html; h.innerHTML = html; } h.classList.toggle('pulse', !!pulse); h.hidden = false; }
-// PC では操作方法を常に左下へ出す（スマホでは出さない）
+// PC では操作方法を常に左下へ出す（スマホでは出さない）。視点・一時停止・音はボタンの角にキーを添える
 export function legend(show, lock) {
-  touchUi = !show; const k = $('keys'), key = show + '|' + !!lock; if (cache.keys === key) return; cache.keys = key; k.hidden = !show;
-  if (show) k.innerHTML = [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], lock ? [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('動かした方向へ進む', 'Steer')] : [jaEn('<b>マウス</b>', '<b>Mouse</b>'), jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), [jaEn('<b>射撃</b>', '<b>Fire</b>'), jaEn('自動', 'Auto')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')], ['<kbd>Esc</kbd>', jaEn('一時停止', 'Pause')], ['<kbd>V</kbd>', jaEn('視点', 'View')], ['<kbd>M</kbd>', jaEn('音', 'Sound')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  touchUi = !show; const k = $('keys'), key = show + '|' + !!lock; if (cache.keys === key) return; cache.keys = key; k.hidden = !show; document.body.classList.toggle('kbd', !!show);
+  if (show) k.innerHTML = [lock ? [ICON.mouse, jaEn('動かした方向へ進む', 'Steer')] : [ICON.mouse, jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
+// 説明に添える絵（文字を減らす）
+export const ICON = {
+  mouse: '<svg class="ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="7" y="3" width="10" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  drag: '<svg class="ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/><circle cx="15" cy="9" r="3.6" fill="currentColor"/><path d="M12 12l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/></svg>',
+  aim: '<svg class="ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
 export function hideAll() { $('lvl').hidden = true; $('res').hidden = true; $('pause').hidden = true; $('wel').hidden = true; pickCb = null; resH = null; }
 // 一時停止の画面。画面のどこをクリック（タップ）しても再開する
 export function showPause(on, touch, resume, home) {

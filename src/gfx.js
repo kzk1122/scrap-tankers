@@ -48,15 +48,19 @@ function patch(mat, o = {}) {
       .replace('#include <project_vertex>', '#include <project_vertex>\n vec4 cwp = vec4(transformed,1.);\n#ifdef USE_INSTANCING\n cwp = instanceMatrix*cwp;\n#endif\n vCW = (modelMatrix*cwp).xyz;');
     sh.fragmentShader = 'uniform float uT; uniform sampler2D uCloud; varying vec3 vCW;\n' + sh.fragmentShader
       .replace('#include <color_fragment>', '#include <color_fragment>\n float cl = texture2D(uCloud, vCW.xz*0.011 + uT*vec2(0.012,0.006)).r; diffuseColor.rgb *= mix(0.66,1.05,smoothstep(0.38,0.6,cl));'
-        + (o.detail ? ` diffuseColor.rgb *= ${o.detail === 2 ? '0.86 + 0.28' : '0.8 + 0.4'}*texture2D(uCloud, (vCW.xz + vCW.y*vec2(0.37,0.61))*0.19).g;` : ''));
+        + (o.detail ? ` diffuseColor.rgb *= ${o.detail === 2 ? '0.86 + 0.28' : '0.8 + 0.4'}*texture2D(uCloud, (vCW.xz + vCW.y*vec2(0.37,0.61))*0.19).g;` : ''))
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>' + (o.rim ? `
+        { float fr = 1. - clamp(dot(normal, normalize(vViewPosition)), 0., 1.); totalEmissiveRadiance += vec3(${o.rim}) * pow(fr, 2.6); }` : ''));
   };
-  mat.customProgramCacheKey = () => 'p' + (o.wind ? 1 : 0) + (o.detail || 0);
+  mat.customProgramCacheKey = () => 'p' + (o.wind ? 1 : 0) + (o.detail || 0) + (o.rim || '');
   return mat;
 }
 export const MAT = patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.74, metalness: 0.06 }), { detail: 2 });
 export const BMAT = new THREE.MeshBasicMaterial({ vertexColors: false });
+// 敵: 輪郭が赤く光るので、草や地面の上でも見分けやすい
+export const EMAT = patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.12 }), { detail: 2, rim: '1.5,0.42,0.22' });
 
-// parts: {s:[w,h,d], p:[x,y,z], c:色, ry, cyl:角数} を1つのジオメトリにまとめる（頂点カラー）。大きい箱は角を丸める
+// parts: {s:[w,h,d], p:[x,y,z], c:色, ry, rx, rz（傾き）, cyl:角数} を1つのジオメトリにまとめる（頂点カラー）。大きい箱は角を丸める
 function pushGeo(out, g, c) {
   g = g.index ? g.toNonIndexed() : g; const P = g.attributes.position.array, Nn = g.attributes.normal.array;
   for (let i = 0; i < P.length; i++) { out.pos.push(P[i]); out.nor.push(Nn[i]); }
@@ -73,7 +77,7 @@ export function geo(parts) {
   for (const p of parts) {
     const mn = Math.min(p.s[0], p.s[1], p.s[2]);
     const g = p.cyl ? new THREE.CylinderGeometry(p.s[0] / 2, (p.s[2] || p.s[0]) / 2, p.s[1], p.cyl) : mn >= 0.5 ? new RoundedBoxGeometry(p.s[0], p.s[1], p.s[2], 1, Math.min(0.09, mn * 0.12)) : new THREE.BoxGeometry(p.s[0], p.s[1], p.s[2]);
-    if (p.ry) g.rotateY(p.ry); g.translate(p.p[0], p.p[1], p.p[2]); c.set(p.c); if (p.e) c.multiplyScalar(p.e); pushGeo(o, g, c); // e: 明るさ倍率（窓の明かりなど、光のにじみに乗る）
+    if (p.rx) g.rotateX(p.rx); if (p.rz) g.rotateZ(p.rz); if (p.ry) g.rotateY(p.ry); g.translate(p.p[0], p.p[1], p.p[2]); c.set(p.c); if (p.e) c.multiplyScalar(p.e); pushGeo(o, g, c); // e: 明るさ倍率（窓の明かりなど、光のにじみに乗る）
   }
   return finish(o);
 }
@@ -232,7 +236,7 @@ export function initGfx(canvas) {
     vertexShader: 'varying vec3 vP; void main(){ vP = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position,1.); gl_Position = p.xyww; }',
     fragmentShader: 'uniform vec3 uH, uZ; varying vec3 vP; void main(){ float h = normalize(vP).y; gl_FragColor = vec4(mix(uH, uZ, smoothstep(-0.02, 0.22, h)), 1.); }' }));
   sky.renderOrder = -1; sky.frustumCulled = false; sky.visible = false; scene.add(sky);
-  initFx(); initGrass(); initWater();
+  initFx(); initGrass(); initWater(); initDmg(canvas);
   composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
   bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.55, 1.1); composer.addPass(bloom); composer.addPass(new OutputPass());
   grade = new ShaderPass({
@@ -264,7 +268,7 @@ export function setQ(n, pin) {
 }
 export const quality = () => q;
 export function resize() {
-  const w = window.innerWidth, h = window.innerHeight; if (!w || !h) return; const pr = Math.min(window.devicePixelRatio || 1, QP[q].pr);
+  const w = window.innerWidth, h = window.innerHeight; if (!w || !h) return; const pr = Math.min(window.devicePixelRatio || 1, Math.max(QP[q].pr, coarse ? 0 : 1)); // PC は重くても解像度は落とさない（ぼやけて見えるため。影や草で軽くする）
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false); composer.setPixelRatio(pr); composer.setSize(w, h); grade.uniforms.uPx.value.set(1 / w, 1 / h);
   camera.aspect = w / h; camera.fov = view ? (camera.aspect >= 1 ? 56 : 64) : camera.aspect >= 1 ? 45 : 55; camera.updateProjectionMatrix();
 }
@@ -320,7 +324,7 @@ export function camUpdate(px, pz, dt, snap, stiff = 7, ry = Math.PI) {
     camera.position.set(cx + Math.sin(az) * Math.cos(el) * d + sx, Math.sin(el) * d, cz + Math.cos(az) * Math.cos(el) * d + sz); camera.lookAt(lerp(cx, lx, e) + sx, lerp(1.1, ly, e), lerp(cz, lz, e) + sz);
   } else if (view) { camera.position.set(cx - fx * cd + sx, ch, cz - fz * cd + sz); camera.lookAt(lx + sx, ly, lz + sz); }
   else { camera.position.set(cx + sx, H, cz + H * 0.52 + sz); camera.lookAt(cx + sx, 0, cz - 1 + sz); }
-  if (view) sky.position.copy(camera.position);
+  sky.visible = !!view || intro > 0; if (sky.visible) sky.position.copy(camera.position); // 出撃カメラは低いところから地平線を映すので空も出す
   const tx = Math.round(view ? cx + fx * 12 : cx), tz = Math.round(view ? cz + fz * 12 : cz); light.position.set(tx + SUN.x * 70, SUN.y * 70, tz + SUN.z * 70); light.target.position.set(tx, 0, tz); light.target.updateMatrixWorld(); // 影は見えている所を中心に
   U.tank.value.set(px, tankK, pz);
 }
@@ -382,6 +386,28 @@ function setWater(feat) {
   for (let i = 0; i < 6; i++) { const k = i / 5; line(rv.hw * 2 * (1 - k * 0.8), `rgb(${Math.round(40 + 215 * k)},0,0)`); }
   g.fillStyle = '#000'; for (const b of rv.bridges) g.fillRect((b - 2.75 + A) * u, 0, 5.5 * u, S);
   wmask.needsUpdate = true;
+}
+
+// ---------- ダメージの数字（キャンバスの上に2Dで重ねる） ----------
+let dcv = null, dctx = null, dDirty = false; const DN = [], DV = new THREE.Vector3();
+function initDmg(canvas) { dcv = document.createElement('canvas'); dcv.id = 'dmg'; dcv.setAttribute('aria-hidden', 'true'); dcv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; canvas.after(dcv); dctx = dcv.getContext('2d'); }
+// big: 会心など大きな一撃（黄色で大きく）。同じ敵への続けざまの命中は1つの数字にまとめる（呼ぶ側で n を足す）
+export function dmgNum(x, z, v, big) { if (DN.length >= 40) DN.shift(); const n = { x: x + rr(-0.35, 0.35), z, v: Math.max(1, Math.round(v)), t: 0, big: !!big, dx: rr(-0.5, 0.5) }; DN.push(n); return n; }
+export function clearDmg() { DN.length = 0; }
+function drawDmg(dt) {
+  if (!dctx || (!DN.length && !dDirty)) return;
+  const w = window.innerWidth, h = window.innerHeight, pr = Math.min(2, window.devicePixelRatio || 1);
+  if (dcv.width !== Math.round(w * pr) || dcv.height !== Math.round(h * pr)) { dcv.width = Math.round(w * pr); dcv.height = Math.round(h * pr); }
+  const g = dctx; g.setTransform(pr, 0, 0, pr, 0, 0); g.clearRect(0, 0, w, h); dDirty = DN.length > 0;
+  const base = clamp(Math.min(w, h) / 34, 13, 22); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  for (let i = DN.length - 1; i >= 0; i--) {
+    const n = DN[i]; n.t += dt; if (n.t > 0.75) { DN.splice(i, 1); continue; }
+    DV.set(n.x + n.dx * n.t, 2.0 + n.t * 2.2, n.z).project(camera); if (DV.z > 1) continue;
+    const sx = (DV.x * 0.5 + 0.5) * w, sy = (0.5 - DV.y * 0.5) * h, pop = n.t < 0.09 ? 1.45 - n.t * 5 : 1, sz = base * (n.big ? 1.55 : 1) * pop;
+    g.globalAlpha = n.t < 0.45 ? 1 : 1 - (n.t - 0.45) / 0.3;
+    g.font = `900 ${sz.toFixed(1)}px ui-rounded,"Arial Rounded MT Bold",system-ui,sans-serif`; g.lineWidth = sz * 0.22; g.strokeStyle = '#141a2e'; g.strokeText(n.v, sx, sy); g.fillStyle = n.big ? '#ffd23f' : '#ffffff'; g.fillText(n.v, sx, sy);
+  }
+  g.globalAlpha = 1;
 }
 
 // ---------- 粒子・破片・輪・焦げ跡・履帯の跡・閃光 ----------
@@ -446,7 +472,7 @@ export function burst(x, y, z, n, hex, spd, size, life, up = 1, hot = 0) {
   }
 }
 export function updParticles(dt) {
-  U.t.value += dt;
+  U.t.value += dt; drawDmg(dt);
   chips.begin();
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i]; p.l -= dt; if (p.l <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
@@ -527,7 +553,7 @@ export function fxAmb(kind, x, z, dt) {
 function fxMote(x, z) { emit(PA, x + rr(-24, 24), rr(0.6, 4), z + rr(-16, 16), rr(-0.3, 0.3), rr(0.05, 0.3), rr(-0.3, 0.3), rr(2.5, 5), 0.1, 0.16, [2.2, 1.9, 1.0], [2.2, 1.9, 1.0], 0.5, 0, 0); }
 const SCN = 72;
 function addScorch(x, z, Rr) { const i = scorch.n++ % SCN; M4.compose(V3.set(x, 0.03, z), Q.setFromEuler(EU.set(0, R() * 6.283, 0)), SC.set(Rr, 1, Rr)); scorch.im.setMatrixAt(i, M4); scorch.im.count = Math.min(SCN, scorch.n); scorch.im.instanceMatrix.needsUpdate = true; }
-export function clearMarks() { scorch.n = 0; scorch.im.count = 0; marks.born.fill(-99); marks.g.attributes.aB.needsUpdate = true; PA.list.length = PS.list.length = parts.length = 0; }
+export function clearMarks() { DN.length = 0; scorch.n = 0; scorch.im.count = 0; marks.born.fill(-99); marks.g.attributes.aB.needsUpdate = true; PA.list.length = PS.list.length = parts.length = 0; }
 export function addMark(x, z, ry, len, w = 0.78) {
   for (const sx of [-w, w]) { const i = marks.i++ % marks.N, c = Math.cos(ry), s = Math.sin(ry), mx = x + c * sx, mz = z - s * sx, hw = 0.19, hl = len / 2, o = i * 12; const P = (k, a, b) => { marks.pos[o + k * 3] = mx + c * a + s * b; marks.pos[o + k * 3 + 1] = 0.025; marks.pos[o + k * 3 + 2] = mz - s * a + c * b; }; P(0, -hw, -hl); P(1, hw, -hl); P(2, -hw, hl); P(3, hw, hl); marks.born.fill(U.t.value, i * 4, i * 4 + 4); }
   marks.g.attributes.position.needsUpdate = marks.g.attributes.aB.needsUpdate = true;

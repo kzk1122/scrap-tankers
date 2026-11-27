@@ -19,14 +19,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:8
 .bar.hp i{background:var(--hp)}.bar.hp.warn i{background:var(--warn)}.bar.hp.crit i{background:var(--bad)}.bar.hp.crit{animation:crit .5s ease-in-out infinite alternate}
 @keyframes crit{to{border-color:var(--bad);box-shadow:0 0 12px var(--bad)}}
 .bar.xp i{background:var(--xp);width:0}.bar.boss i{background:var(--bad)}
-.num{font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.num{white-space:nowrap;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .mid{text-align:center;line-height:1.15}
 #wave{font-size:clamp(16px,2.6vw,22px);letter-spacing:.04em}
 #time{font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums}
 .right{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .scrap{display:flex;align-items:center;gap:6px;background:var(--panel);border:2px solid var(--line);border-radius:999px;padding:4px 12px 4px 8px;font-size:16px;font-variant-numeric:tabular-nums;text-shadow:none}
 .nut{display:inline-block;width:14px;height:14px;background:var(--gold);clip-path:polygon(25% 5%,75% 5%,100% 50%,75% 95%,25% 95%,0 50%);vertical-align:-2px}
-.ib{pointer-events:auto;width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:16px;cursor:pointer}
+.ib{position:relative;pointer-events:auto;width:36px;height:36px;border-radius:50%;border:2px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:16px;cursor:pointer}
 .ib.off{color:var(--dim);text-decoration:line-through}
 .ib svg{display:block;margin:auto}
 #view.on{color:var(--xp);border-color:var(--xp)}
@@ -35,13 +35,25 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:8
 #bossw .bar{flex:1}
 #banner{align-self:center;margin-top:6vh;font-size:clamp(26px,6vw,46px);letter-spacing:.06em;opacity:0;color:var(--ink);-webkit-text-stroke:1px var(--dark);text-shadow:0 4px 0 var(--dark)}
 #banner.big{color:var(--gold)}
+/* タイトルロゴ: その回の最初の出撃で、出撃カメラに重ねて出す（操作は止めない） */
+#logo{position:absolute;left:0;right:0;top:max(60px,13%);display:flex;flex-direction:column;align-items:center;pointer-events:none;font-family:var(--font);font-weight:900;line-height:.86;font-size:clamp(40px,min(10vw,12.5vh),110px);opacity:0}
+#logo.show{animation:logo 2.9s ease-out forwards}
+#logo .w{position:relative;display:inline-block;transform:skewX(-9deg);letter-spacing:.01em}
+#logo .bk{position:absolute;left:0;top:0;color:#1b130c;-webkit-text-stroke:.17em #1b130c;filter:drop-shadow(0 .07em 0 #1b130c) drop-shadow(0 .12em .18em rgba(0,0,0,.55))}
+#logo .fr{position:relative;background:linear-gradient(180deg,#fff6b8 0%,#ffd23f 38%,#ff9a1f 70%,#e8551a 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+#logo .w2 .fr{background:linear-gradient(180deg,#f4f7fb 0%,#c9d3e3 45%,#8d9ab2 80%,#5d6880 100%);-webkit-background-clip:text;background-clip:text}
+#logot{margin-top:.55em;font-size:max(15px,.2em);line-height:1.2;font-weight:800;color:#fff;text-align:center;padding:0 16px;text-shadow:0 2px 0 var(--dark),0 0 12px rgba(0,0,0,.6)}
+@keyframes logo{0%{opacity:0;transform:scale(1.25)}12%{opacity:1;transform:scale(1)}78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-24px) scale(.96)}}
 #banner.show{animation:ban 1.9s ease-out}
 @keyframes ban{0%{opacity:0;transform:scale(1.5)}12%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
 .grow{flex:1}
 #hint{align-self:center;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 16px;font-size:16px;text-align:center;text-shadow:none;max-width:100%}
 kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-radius:6px;background:var(--ink);color:var(--dark);font:inherit;font-size:12px;text-align:center;box-shadow:0 2px 0 var(--dim)}
 #keys{align-self:flex-start;display:flex;flex-wrap:wrap;gap:4px 12px;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:5px 10px;font-size:12px;color:var(--dim);text-shadow:none;opacity:.92}
-#keys span{white-space:nowrap}#keys b{color:var(--ink)}
+#keys span{white-space:nowrap;display:inline-flex;align-items:center;gap:4px}#keys b{color:var(--ink)}#keys .ico{color:var(--ink)}
+.ico{display:inline-block;vertical-align:middle;flex:none}
+#hint .ico{color:var(--gold);margin-right:6px;vertical-align:-5px}
+body.kbd .ib[data-k]::after{content:attr(data-k);position:absolute;right:-5px;bottom:-5px;min-width:14px;font-size:10px;line-height:14px;text-align:center;background:var(--dark);border:1px solid var(--line);border-radius:4px;color:var(--dim);font-weight:800}
 #hint.pulse{border-color:var(--gold);animation:hintp 1s ease-in-out infinite alternate}
 @keyframes hintp{to{box-shadow:0 0 16px var(--gold2)}}
 .spw{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:-2px}
@@ -130,7 +142,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
 @media (max-width:560px){.card{flex:1 1 100%;max-width:none;flex-direction:row;text-align:left;padding:12px 12px 12px 14px;gap:12px}.card .ct{flex:1}.card .key{display:none}.card .ico{width:50px;height:50px;flex:none}}
 @media (max-height:430px){.card{padding:10px}.card .ico{width:44px;height:44px}.panel{padding:10px 14px;gap:6px}#stats b{font-size:16px}.big{padding:9px}}
 @media (orientation:landscape) and (max-height:540px){.panel.two{width:min(800px,100%);flex-direction:row;align-items:flex-start;gap:14px}.two .rcol{flex:1 1 0;gap:6px}.ov{padding-block:8px}.rtitle{font-size:26px}} /* スマホ横は左右2列 */
-@media (prefers-reduced-motion:reduce){.card,.gbtn.can,#banner.show{animation-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.card,.gbtn.can,#banner.show{animation-duration:.01s}#logo.show{animation-duration:1.5s}}
 </style>
 <div id="app">
   <canvas id="c"></canvas>
@@ -139,7 +151,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
     <div class="top">
       <div class="hpw"><div class="bar hp" id="hpbar"><i id="hpb"></i></div><div class="num" id="hpn"></div></div>
       <div class="mid"><div id="wave"></div><div id="time"></div></div>
-      <div class="right"><div class="scrap"><span class="nut"></span><span id="scr">0</span></div><button id="view" class="ib" aria-label="View"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 7.5h11a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 15V9A1.5 1.5 0 0 1 3 7.5zM17 10.5l5.5-3v9l-5.5-3z" fill="currentColor"/></svg></button><button id="pz" class="ib" aria-label="Pause"><i></i></button><button id="mute" class="ib" aria-label="Sound">♪</button></div>
+      <div class="right"><div class="scrap"><span class="nut"></span><span id="scr">0</span></div><button id="view" class="ib" data-k="V" aria-label="View"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 7.5h11a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 15V9A1.5 1.5 0 0 1 3 7.5zM17 10.5l5.5-3v9l-5.5-3z" fill="currentColor"/></svg></button><button id="pz" class="ib" data-k="P" aria-label="Pause"><i></i></button><button id="mute" class="ib" data-k="M" aria-label="Sound">♪</button></div>
     </div>
     <div id="bossw" hidden><span>BOSS</span><div class="bar boss"><i id="bossb"></i></div></div>
     <div id="banner"></div>
@@ -150,6 +162,7 @@ kbd{display:inline-block;min-width:22px;padding:1px 5px;margin-right:3px;border-
     <div id="keys" hidden></div>
     <div class="xpw"><div class="lv" id="lv">Lv 1</div><div class="bar xp"><i id="xpb"></i></div></div>
   </div>
+  <div id="logo" hidden aria-hidden="true"><div class="w w1"><span class="bk">SCRAP</span><span class="fr">SCRAP</span></div><div class="w w2"><span class="bk">TANKERS</span><span class="fr">TANKERS</span></div><div id="logot"></div></div>
   <div id="joy" hidden><i></i></div>
   <div id="lvl" class="ov" hidden><div class="ovt" id="lvlt"></div><div class="ovs" id="lvls"></div><div id="cards"></div></div>
   <div id="res" class="ov" hidden>
