@@ -51,6 +51,7 @@ function welcomeOrStart() { // その日はじめての再訪は「おかえり�
 async function boot() {
   try {
     await platform.init(); forceMute(platform.muted()); platform.onMute(forceMute);
+    audioInit(); // 読み込んだらすぐ BGM を鳴らしてみる（外側のページで操作済みなら鳴る）。止められたら最初のクリック・タップ・キーで鳴り始める
     window.addEventListener('keydown', e => { // 入力処理より先に受け取り、再開のキーで必殺技や移動が出ないようにする
       if (e.repeat) return; const k = e.key;
       if (G.paused) { if (k === 'Enter' || k === ' ' || k === 'p' || k === 'P') { e.preventDefault(); e.stopImmediatePropagation(); resume(); } }
