@@ -48,7 +48,7 @@ export const GAR = [
 export const garCost = lv => Math.round(15 * Math.pow(1.5, Math.min(lv, 10)) * Math.pow(1.08, Math.max(0, lv - 10)));
 export const GAR_MAX = 30;
 
-// ---- スクラップ列車: 倒した敵の残骸を鎖でつないで引く。車両は元の敵の武器で撃ち、自分の列を横切って輪を閉じると中の敵がまとめて吹き飛ぶ ----
+// ---- スクラップ列車: 倒した敵の残骸を鎖でつないで引く。車両は元の敵の武器で撃ち、「囲む」で群れのまわりを1周すると中の敵がまとめて潰れる ----
 // 車両: 0 機銃車（ドローン・突撃車から）/ 1 砲車（砲手・迫撃車から）/ 2 装甲車（ブルートから。弾を止め、こすると強い）/ 3 爆弾車（自爆車から。敵に触れると爆発）
 // hp: 耐久、r: 当たりの半径、hl: 車両の長さの半分（鎖をつなぐ位置）、rng/cd/dm/spd/life: 射程・間隔・威力（自機の弾の何倍か）・弾速・弾の寿命、grind: こすったときの威力、armor: 受けるダメージの倍率
 const CT = [
@@ -58,8 +58,8 @@ const CT = [
   { hp: 30, r: 1.0, hl: 0.9, rng: 0, cd: 0, dm: 0, grind: 0, bomb: 1 },
 ];
 const SALV = { 0: [0, 0.3], 4: [0, 0.3], 1: [1, 0.85], 6: [1, 0.85], 2: [2, 1], 5: [3, 0.75] }; // 敵の種類 → [車両, 残骸を落とす確率]
-const GAP0 = 3.1, GAP = 2.9, TSTEP = 0.35, LMIN = 6.5; // 自機の中心から1両目まで、車両の間隔、軌跡の点の間隔、輪に数える最短の長さ
-// 列の後ろには光る軌跡が残り、そこを横切っても輪が閉じる（長い列ほど軌跡も長く、大きく囲める）
+const GAP0 = 3.1, GAP = 2.9, TSTEP = 0.35; // 自機の中心から1両目まで、車両の間隔、軌跡の点の間隔
+// 「囲む」で回れる円の大きさ（長い列ほど大きく囲める）
 const loopEnd = () => GAP0 + GAP * (CARS.length - 1) + 10 + 3 * CARS.length;
 const TRL = [], CARS = [], SV = [], LZQ = []; // 軌跡（新しい順）、連結中の車両（前から順）、落ちている残骸、輪の中心でまとめて潰す演出の待ち
 const trainMax = () => 8 + 3 * (u.hitch || 0);
@@ -133,7 +133,7 @@ export function initGame() {
   instCT = CD.map((o, i) => new Inst(i === 3 ? geo([{ s: [0.95, 0.95, 0.95], p: [0, 1.15, 0], c: 0xc8362f, cyl: 12 }, { s: [1.0, 0.1, 1.0], p: [0, 1.0, 0], c: 0xffd23f, cyl: 12 }, { s: [1.0, 0.1, 1.0], p: [0, 1.36, 0], c: 0xffd23f, cyl: 12 }, { s: [0.22, 0.12, 0.22], p: [0, 1.68, 0], c: 0x2b2e33, cyl: 8 }]) : tankGeo(0xffffff, Object.assign({ part: 'tur', tur: 0xffffff, eye: false }, o)), 24, { shadow: true }));
   instLink = new Inst(geo([{ s: [0.26, 0.18, 0.5], p: [0, 0, 0], c: 0x9aa0a8 }]), 260, {});
   instMark = new Inst(new THREE.TorusGeometry(1.45, 0.09, 6, 36).rotateX(Math.PI / 2), 12, { mat: BMAT });
-  instRope = new Inst(new THREE.BoxGeometry(0.16, 0.03, 0.42), 160, { mat: BMAT });
+  instRope = new Inst(new THREE.BoxGeometry(0.22, 0.03, 0.48), 160, { mat: BMAT });
   W.setOnBreak(onBreak);
 }
 
@@ -380,16 +380,6 @@ function updTrain(dt, live) {
     popText(q.x, q.z, (n >= 2 ? '×' + n + ' ' : '') + jaEn('まとめて撃破！', 'CRUSHED!'));
   }
   if (CARS.some(c => c.dead)) { let n = 0; for (const c of CARS) if (!c.dead) CARS[n++] = c; CARS.length = n; }
-  // 輪: 自機が自分の列（LMIN より後ろ、最後尾まで）を横切ったら、そこまでの軌跡で囲んだ中の敵をまとめて吹き飛ばす
-  if (!live || G.wrap || CARS.length < 2 || G.t < G.lcd || P.odo - G.lodo < Math.max(LMIN, 0.9 * G.lper)) return;
-  const end = loopEnd();
-  let ax = P.x, az = P.z, acc = 0, hit = -1;
-  for (let i = 0; i < TRL.length; i++) { const q = TRL[i], L = Math.hypot(q.x - ax, q.z - az); if (acc >= LMIN && segD2(P.x, P.z, ax, az, q.x, q.z) < 2.6 * 2.6) { hit = i; break; } acc += L; ax = q.x; az = q.z; if (acc > end) break; }
-  if (hit < 0) return;
-  const poly = [[P.x, P.z]]; for (let i = 0; i <= hit; i++) poly.push([TRL[i].x, TRL[i].z]);
-  let A = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) A += (poly[j][0] + poly[i][0]) * (poly[j][1] - poly[i][1]); A = Math.abs(A) / 2;
-  if (A < 8) return;
-  G.lcd = G.t + 0.4; G.lodo = P.odo; G.lper = acc; lasso(poly, A);
 }
 // 囲む（列車があるときの必殺）: 群れのまわりを戦車が自動で1周し、1周したら輪を閉じてまとめて潰す。回っている間は無敵
 function packAt() { // 自機の近く（18以内）でいちばん密な群れの中心
@@ -397,14 +387,17 @@ function packAt() { // 自機の近く（18以内）でいちばん密な群れ�
   for (const a of L) { let n = 0, x = 0, z = 0; for (const b of L) if ((a.x - b.x) ** 2 + (a.z - b.z) ** 2 < 30) { n++; x += b.x; z += b.z; } if (n > bn) { bn = n; best = [x / n, z / n]; } }
   return best;
 }
-function startWrap() {
+function planWrap() { // 囲む円: 自機を通り、中心は群れ（PCで照準ありならカーソル）の方。dir は今の向きに合わせた回る向き
   const Rmax = clamp(loopEnd() * 0.85 / 6.283, 3.5, 9.5);
   let c = !I.touch && !I.auto && !I.ext ? [I.ax, I.az] : packAt(); if (c && (c[0] - P.x) ** 2 + (c[1] - P.z) ** 2 > 400) c = packAt();
   if (!c) c = [P.x + Math.sin(P.ry) * Rmax, P.z + Math.cos(P.ry) * Rmax]; // 敵がいなければ前方
   let dx = c[0] - P.x, dz = c[1] - P.z, d = Math.hypot(dx, dz) || 1; const R = clamp(d, 3.5, Rmax);
   const cx = clamp(P.x + dx / d * R, -W.A + R + 1, W.A - R - 1), cz = clamp(P.z + dz / d * R, -W.A + R + 1, W.A - R - 1); // 円は自機を通り、中心は群れの方
-  const a0 = Math.atan2(P.x - cx, P.z - cz), dir = Math.sin(P.ry) * (P.z - cz) - Math.cos(P.ry) * (P.x - cx) > 0 ? -1 : 1, T = clamp(0.85 + R * 0.06, 1.0, 1.45);
-  G.wrap = { cx, cz, R: Math.hypot(P.x - cx, P.z - cz) || R, a: a0, dir, sw: 0, v: 6.283 / T }; G.sp = 0; G.inv = Math.max(G.inv, T + 0.4);
+  return { cx, cz, R: Math.hypot(P.x - cx, P.z - cz) || R };
+}
+function startWrap() {
+  const { cx, cz, R } = planWrap(), a0 = Math.atan2(P.x - cx, P.z - cz), dir = Math.sin(P.ry) * (P.z - cz) - Math.cos(P.ry) * (P.x - cx) > 0 ? -1 : 1, T = clamp(0.85 + R * 0.06, 1.0, 1.45);
+  G.wrap = { cx, cz, R, a: a0, dir, sw: 0, v: 6.283 / T }; G.sp = 0; G.inv = Math.max(G.inv, T + 0.4);
   ring(cx, cz, G.wrap.R * 1.05, 0xffd23f); ring(cx, cz, 1.6, 0xffd23f); sfx.wave(); addShake(0.2); ev('sp', { s: Math.round(G.t), w: 1, cars: CARS.length }); if (!save.wr1) { save.wr1 = 1; persist(); }
 }
 function updWrap(dt) {
@@ -534,11 +527,11 @@ function tutorial() {
 }
 // 列車の案内（輪を一度決めるまで）: 残骸を拾う → 列で囲む
 function trainTut() {
-  if (G.tut < 2) return; if (save.loop1) { if (!G.tutL) { G.tutL = 1; UI.hint(null); } return; } // 輪を決めたら案内を消す
-  if (!save.link1) { if (SV.length) UI.hint(UI.ICON.link + jaEn('光る残骸に触れて連結しよう', 'Touch a glowing wreck to hook it on'), true); else UI.hint(null); return; }
-  if (CARS.length < 2) { UI.hint(null); return; }
-  if (G.sp >= 1) UI.hint(UI.ICON.loop + (I.touch ? jaEn('「囲む」ボタンで、群れのまわりをぐるっと1周', 'Tap LASSO to circle around the pack') : jaEn('<kbd>Space</kbd> で、群れのまわりをぐるっと1周', 'Press <kbd>Space</kbd> to circle around the pack')), true);
-  else UI.hint(UI.ICON.loop + jaEn('敵を倒してゲージをためよう　光る線を横切っても囲める', 'Defeat enemies to fill the gauge. Crossing your glowing trail also closes a loop'), false);
+  if (G.tut < 2) return; if (save.loop1) { if (!G.tutL) { G.tutL = 1; UI.hint(null); } return; } // 一度まとめて潰したら案内を消す
+  if (!CARS.length) { if (SV.length) UI.hint(UI.ICON.link + jaEn('光る残骸に触れて連結しよう', 'Touch a glowing wreck to hook it on'), true); else UI.hint(null); return; }
+  if (CARS.length < 2) { UI.hint(UI.ICON.link + jaEn('もう1両つなぐと「囲む」が使える', 'Hook one more car to unlock LASSO'), false); return; }
+  if (G.sp >= 1 || G.wrap) UI.hint(UI.ICON.loop + (I.touch ? jaEn('「囲む」ボタンで、黄色い円の中をまとめて潰す', 'Tap LASSO to crush everything in the yellow circle') : jaEn('<kbd>Space</kbd> か右クリックで、黄色い円の中をまとめて潰す', 'Press <kbd>Space</kbd> or right-click to crush everything in the yellow circle')), true);
+  else UI.hint(UI.ICON.loop + jaEn('敵を倒すと「囲む」のゲージがたまる', 'Defeat enemies to charge LASSO'), false);
 }
 function findTarget() { // スマホ用の自動照準: 近い敵 → 近い木箱・ドラム缶
   let best = null, bd = (S.bspd * S.blife + 1) ** 2;
@@ -741,10 +734,10 @@ export function draw(time) {
     instCB[v.k].put(v.x, 0, v.z, v.ry, 1, 0.92, g, g * 0.9, g * 0.82); instCT[v.k].put(v.x, 0, v.z, v.ry + 0.5, 1, 0.92, g, g, g); instMark.put(v.x, 0.12, v.z, 0, p, 1, 1.5 * b, 1.05 * b, 0.12 * b);
   }
   instRope.begin();
-  if (CARS.length >= 2 && !P.dead) { // 最後尾から後ろの光る軌跡（横切ると輪が閉じる範囲）。点線で、端に向かって薄くなる
-    const s0 = GAP0 + GAP * (CARS.length - 1) + CT[CARS[CARS.length - 1].k].hl + 0.4, s1 = loopEnd(), ok = G.t >= G.lcd && P.odo - G.lodo >= Math.max(LMIN, 0.9 * G.lper), sl = [];
-    for (let q = s0; q < s1; q += 0.8) sl.push(q); const pts = []; trailAt(sl, pts);
-    for (let i = 0; i < pts.length; i++) { const f = 1 - i / pts.length, b = (ok ? 1.6 : 0.6) * (0.35 + 0.65 * f) * (1 + 0.15 * Math.sin(time * 8 - i * 0.5)); instRope.put(pts[i][0], 0.06, pts[i][1], pts[i][2], 1, 1, 2.2 * b, 1.6 * b, 0.3 * b); }
+  if (CARS.length >= 2 && !P.dead && G.state === 'play' && (G.sp >= 1 || G.wrap)) { // 囲む円（ゲージがたまったら群れの足元に出す。回っている間も出す）
+    if (!G.wrap && ((G.planT = (G.planT || 0) - 1 / 60) <= 0 || !G.plan)) { G.planT = 0.12; G.plan = planWrap(); }
+    const w = G.wrap || G.plan, n = Math.min(150, Math.max(24, Math.round(6.283 * w.R / 0.75))), b = (G.wrap ? 2 : 1.3) * (1 + 0.25 * Math.sin(time * 7));
+    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + time * 0.6; instRope.put(w.cx + Math.sin(a) * w.R, 0.07, w.cz + Math.cos(a) * w.R, a + Math.PI / 2, 1, 1, 2.2 * b, 1.6 * b, 0.25 * b); }
   }
   instRope.end();
   for (const it of instCB) it.end(); for (const it of instCT) it.end(); instLink.end(); instMark.end();
@@ -757,7 +750,7 @@ export function draw(time) {
   instGear.end(); instHeal.end();
   instSaw.begin(); for (let j = 0; j < S.orbit && !P.dead; j++) { const a = (P.oa || 0) + j / S.orbit * 6.283; instSaw.put(P.x + Math.sin(a) * 3.3, 1, P.z + Math.cos(a) * 3.3, time * 14, 1); } instSaw.end();
   instMine.begin(); for (const m of M) instMine.put(m.x, 0, m.z, 0, Math.min(1, m.t * 4)); instMine.end();
-  UI.legend(!I.touch, I.lock);
+  UI.legend(!I.touch, I.lock, CARS.length >= 2);
   UI.hud({ hp: P.hp, maxhp: S.maxhp, xp: G.xp, need: need(G.lvl), lvl: G.lvl, wave: G.wave, t: G.t, scrap: save.scrap + G.scrap - G.banked, cars: CARS.length, cap: trainMax(), stage: G.stage, place: jaEn(TH.ja, TH.en), sp: G.sp, spHint: G.state === 'play' && G.sp >= 1 && !save.sp1 && CARS.length < 2, wrap: CARS.length >= 2 });
 }
 // テストとボット用の状態

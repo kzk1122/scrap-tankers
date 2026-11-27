@@ -58,9 +58,9 @@ export function toast(t) { const e = $('toast'); e.textContent = t; replay(e, 's
 export function vignette() { replay($('vig'), 'show'); }
 export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden = true; return; } if (cache.hint !== html) { cache.hint = html; h.innerHTML = html; } h.classList.toggle('pulse', !!pulse); h.hidden = false; }
 // PC では操作方法を常に左下へ出す（スマホでは出さない）。視点・一時停止・音はボタンの角にキーを添える
-export function legend(show, lock) {
-  touchUi = !show; const k = $('keys'), key = show + '|' + !!lock; if (cache.keys === key) return; cache.keys = key; k.hidden = !show; document.body.classList.toggle('kbd', !!show);
-  if (show) k.innerHTML = [lock ? [ICON.mouse, jaEn('動かした方向へ進む', 'Steer')] : [ICON.mouse, jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], ['<kbd>Space</kbd>', jaEn('必殺技', 'Special')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+export function legend(show, lock, wrap) {
+  touchUi = !show; const k = $('keys'), key = show + '|' + !!lock + '|' + !!wrap; if (cache.keys === key) return; cache.keys = key; k.hidden = !show; document.body.classList.toggle('kbd', !!show);
+  if (show) k.innerHTML = [lock ? [ICON.mouse, jaEn('動かした方向へ進む', 'Steer')] : [ICON.mouse, jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], ['<kbd>Space</kbd>', wrap ? jaEn('囲む', 'Lasso') : jaEn('必殺技', 'Special')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
 // 説明に添える絵（文字を減らす）
 export const ICON = {
