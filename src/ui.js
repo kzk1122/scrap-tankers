@@ -45,7 +45,7 @@ export function hud(d) {
   const p = Math.round(Math.min(1, d.sp) * 50), rdy = d.sp >= 1; // 必殺技ゲージ
   if (cache.sp !== p) { cache.sp = p; $('sp').style.setProperty('--p', p * 2 + '%'); }
   if (cache.spr !== rdy) { cache.spr = rdy; $('sp').classList.toggle('ready', rdy); }
-  if (cache.spk !== touchUi) { cache.spk = touchUi; $('spk').textContent = touchUi ? 'TAP' : 'SPACE'; $('spl').textContent = jaEn('必殺', 'BLAST'); }
+  if (cache.spk !== touchUi + ':' + d.wrap) { cache.spk = touchUi + ':' + d.wrap; $('spk').textContent = touchUi ? 'TAP' : 'SPACE'; $('spl').textContent = d.wrap ? jaEn('囲む', 'LASSO') : jaEn('必殺', 'BLAST'); $('sp').classList.toggle('wrap', !!d.wrap); } // 列車があるときは「囲む」
   if (cache.sph !== d.spHint) { cache.sph = d.spHint; $('sptip').hidden = !d.spHint; if (d.spHint) $('sptip').innerHTML = touchUi ? jaEn('必殺技がたまった！ ボタンを押すと大砲撃', 'Special ready! Tap the button for a big blast') : jaEn('必殺技がたまった！ <kbd>Space</kbd> か右クリックで大砲撃', 'Special ready! Press <kbd>Space</kbd> or right-click for a big blast'); }
 }
 let touchUi = false;
