@@ -62,6 +62,7 @@ export function blockAt(x, z) {
   const b = grid[i + j * N]; if (!b) return null;
   return (Math.abs(x - b.x) <= b.h && Math.abs(z - b.z) <= b.h) ? b : null;
 }
+export function take(b) { if (b.hp > 0) { b.hp = 0; grid[b.k] = null; } } // 壊さずに取り除く（磁石でつかんだドラム缶）
 export function damageBlock(b, d) {
   if (b.hp <= 0) return false;
   b.hp -= d; b.hitT = 0.12;
