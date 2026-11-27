@@ -799,7 +799,10 @@ function aimPt() { // 予告線のうち自機にいちばん近い点（ボッ�
   return (x - P.x) ** 2 + (z - P.z) ** 2 < 9 ? [[x, z]] : [];
 }
 export const carsV = () => CARS.map(c => Math.hypot(c.vx, c.vz)); // 確認用: 車両の速さ
-export function giveCars(ks) { for (const k of ks) { const mx = carMax(k); const [ax, az] = anchor(); CARS.push({ k, x: ax - Math.sin(P.ry) * GAP * CARS.length, z: az - Math.cos(P.ry) * GAP * CARS.length, vx: 0, vz: 0, ry: P.ry, ta: P.ry, hp: mx, max: mx, cd: 0.4, hitT: 0, dead: false }); } } // 確認用: 車両をすぐ連結する
+export function giveCars(ks, pts) { // 確認用: 車両をすぐ連結する（pts を渡すとその位置に置く。掲載画像の撮影用）
+  const [ax, az] = anchor(); ks.forEach((k, j) => { const mx = carMax(k), i = CARS.length, q = pts && pts[j], x = q ? q[0] : ax - Math.sin(P.ry) * GAP * i, z = q ? q[1] : az - Math.cos(P.ry) * GAP * i, pr = i ? CARS[i - 1] : { x: ax, z: az }, ry = Math.atan2(pr.x - x, pr.z - z);
+    CARS.push({ k, x, z, vx: 0, vz: 0, ry, ta: ry, hp: mx, max: mx, cd: 0.4, hitT: 0, dead: false }); });
+}
 export function toBoss() { for (const e of E) e.dead = true; E.length = 0; G.wave = NWAVE - 1; G.wt = 0; startWave(NWAVE); }
 export function snapshot() {
   return { state: G.state, paused: !!G.paused, sp: G.sp, spN: G.spN, t: G.t, wave: G.wave, lvl: G.lvl, hp: P.hp, maxhp: S.maxhp, kills: G.kills, scrap: G.scrap, enemies: E.length, bullets: B.length, gears: K.length, x: P.x, z: P.z, won: G.won, stage: G.stage, ups: Object.assign({}, u),

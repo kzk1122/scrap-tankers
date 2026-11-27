@@ -6,11 +6,12 @@ import { mkdirSync } from 'node:fs';
 const FMT = process.env.FMT || 'land', SEG = +(process.env.SEG || 0), SEC = +(process.env.SEC || 6), OUT = process.env.OUT;
 // 撮影サイズ: 横 1920x1080 / 縦 1080x1620（2:3）。画面の大きさは実機に近い CSS ピクセルにして倍率で解像度を出す
 const VP = { land: [960, 540, 2], port: [720, 1080, 1.5] }[FMT];
-// 場面: 拠点（見た目が変わる）、前もって進める秒数（その間にレベルアップで強化がつく）、ボス戦にするか、後ろからの視点にするか、必殺技を撃つ時刻。撮影中は経験値を0にしてレベルアップの画面を出さない
+// 場面: 拠点（見た目が変わる）、前もって進める秒数（その間にレベルアップで強化がつく）、ボス戦にするか、後ろからの視点にするか、
+// 撮る前に磁石でつないでおく残骸（cars）、「ぶっ放す」を押す時刻（sp）。撮影中は経験値を0にしてレベルアップの画面を出さない
 const SCENES = [
-  { stage: 3, pre: 75, seed: 11 },
-  { stage: 5, pre: 60, seed: 23, boss: true },
-  { stage: 8, pre: 90, seed: 37, view: 1, sp: 2.5 },
+  { stage: 1, pre: 40, seed: 11, cars: [0, 1, 0, 2, 1], sp: 3.6 },
+  { stage: 5, pre: 60, seed: 23, boss: true, cars: [1, 2, 0, 3, 1, 0], sp: 2.2 },
+  { stage: 8, pre: 90, seed: 37, view: 1, cars: [1, 0, 2, 1, 3], sp: 3.0 },
 ];
 const S = SCENES[SEG]; const dir = `${OUT}/${FMT}-${SEG}`; mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -33,11 +34,21 @@ await p.evaluate((S) => {
     for (const e of st.foe) { const dx = st.x - e[0], dz = st.z - e[1], d = Math.hypot(dx, dz) || 1; vx += dx / d * 6 / (d * d); vz += dz / d * 6 / (d * d); }
     let g = null, gd = 400; for (const k of st.gear) { const d = (k[0] - st.x) ** 2 + (k[1] - st.z) ** 2; if (d < gd) { gd = d; g = k; } }
     if (g) { const d = Math.sqrt(gd) || 1; vx += (g[0] - st.x) / d * 0.5; vz += (g[1] - st.z) / d * 0.5; }
+    if (st.cars < st.cap) { let v = null, vd = 400; for (const k of st.sv) { const d = (k[0] - st.x) ** 2 + (k[1] - st.z) ** 2; if (d < vd) { vd = d; v = k; } } if (v) { const d = Math.sqrt(vd) || 1; vx += (v[0] - st.x) / d * 0.9; vz += (v[1] - st.z) / d * 0.9; } } // 光る残骸を拾いに行く
+    if (window.__orb) { // 撮影中は広場を大きく回る（鎖が弧を描いて振れ、群れが後ろについてくる）。近すぎる敵だけ避ける
+      const o = window.__orb, dx = st.x - o.x, dz = st.z - o.z, d = Math.hypot(dx, dz) || 1, rc = (o.R - d) / o.R * 1.6;
+      vx = -dz / d * o.dir + dx / d * rc; vz = dx / d * o.dir + dz / d * rc;
+      for (const e of st.near) { const ex = st.x - e[0], ez = st.z - e[1], ed = Math.hypot(ex, ez) || 1; if (ed < 4) { vx += ex / ed * 4 / (ed * ed); vz += ez / ed * 4 / (ed * ed); } }
+    }
     const l = Math.hypot(vx, vz); if (l > 0.05) { mx = vx / l; mz = vz / l; } T.input({ mx, mz, auto: true, sp: !!sp });
   };
   // 前もって進める（描かない）。死なないように体力を戻し続け、強化を数回取らせる
   for (let f = 0; f < 60 * S.pre; f++) { if (f % 6 === 0) window.__bot(false); T.P.hp = Math.max(T.P.hp, 60); const s = T.step(1); if (s === 'result') break; }
   if (S.boss) { T.boss(); for (let f = 0; f < 60 * 4; f++) { if (f % 6 === 0) window.__bot(false); T.step(1); } }
+  if (S.cars) { // 広場の中ほどへ移して残骸をつなぎ、回りながら鎖がなじむまで少し進める
+    const st = T.state(), R = S.R || 11; T.P.x = R; T.P.z = 0; T.P.vx = T.P.vz = 0; T.P.ry = Math.PI; window.__orb = { x: 0, z: 0, R, dir: 1 };
+    T.cars(S.cars.slice(0, Math.max(0, st.cap - st.cars))); for (let f = 0; f < 90; f++) { if (f % 6 === 0) window.__bot(false); T.P.hp = Math.max(T.P.hp, 60); T.step(1); }
+  }
   T.G.sp = 1; T.snap();
 }, S);
 const N = Math.round(SEC * 30); console.log(FMT, SEG, 'frames', N);

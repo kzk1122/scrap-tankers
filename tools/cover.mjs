@@ -1,6 +1,7 @@
 // 掲載用カバー画像: ゲームの描画で場面を組み、低いカメラで撮ってタイトルを重ねる
 // 使い方: node build.mjs site && PW=<playwright> OUT=<出力先> FMT=land|port|sq [ST=3] [PREVIEW=1] node tools/cover.mjs
 // 出力は2倍の大きさ（cover-<FMT>-raw.png）。縮小して 1920x1080 / 800x1200 / 800x800 にする。爆発は乱数なので毎回少し違う
+// 戦車の後ろには磁石でつないだ残骸の列（CHAIN）。FIRE のコマで「ぶっ放す」を押し、撮る瞬間に残骸の弾が飛んでいる
 // 太陽は -x,-z 側にあるので、場面は「設計上の座標」を180度回して置き、カメラは太陽側から撮る（順光）
 import { createRequire } from 'node:module'; const { chromium } = createRequire(import.meta.url)(process.env.PW);
 const FMT = process.env.FMT || 'land', OUT = process.env.OUT, PRE = !!process.env.PREVIEW, ST = +(process.env.ST || 3);
@@ -10,6 +11,7 @@ const SCENE = {
   foes: [[0, -2.5, -5.5, 1.0], [1, -7.5, -6, 1.3], [4, 5, -8.5, -0.3], [6, -9, -11, 1.0], [0, -4, -12.5, 0.6]],
   boss: [0.8, -12.5, 0.3],
   kill: [0.2, -3.6],
+  chain: { kinds: [1, 0, 2, 3, 1], bend: +(process.env.BEND || 0.12), r: +(process.env.HR || -1.1) }, fire: +(process.env.FIRE || (FMT === 'sq' ? 46 : 41)),
   booms: [[8, -6, -14, 2.6], [20, 5, -15, 3], [40, -1.6, -3.0, 1.4], [45, -3.2, -10.5, 3.2]],
   cam: { land: { p: [1.0, 5.6, 9.2], t: [-2.2, 0.9, -4] }, port: { p: [2.4, 7.4, 10.8], t: [1.3, 1.0, -5.5] }, sq: { p: [2.4, 7.0, 9.8], t: [1.4, 0.6, -5.5] } }[FMT],
 };
@@ -29,11 +31,15 @@ await p.evaluate(([S, ST]) => {
   const BK = [3, 3, 7, 8, 7, 3, 8][ST] || 8, L = [[BK, ...S.boss]].concat(S.foes.map(f => f));
   window.__cvE = L.map(([k, x, z, r]) => { const [mx, mz] = M(x, z), e = T.spawn(k, mx, mz, A(r)); return [e, mx, mz]; });
   const [hx, hz] = M(S.hero[0], S.hero[1]), [bx, bz] = M(S.boss[0], S.boss[1]);
-  window.__hold = () => { const T = window.__tk; T.P.x = hx; T.P.z = hz; T.P.ry = A(S.hero[2]); T.P.ty = Math.atan2(bx - hx, bz - hz); T.P.hp = 999; T.G.inv = 0; for (const [e, x, z] of window.__cvE) { e.x = x; e.z = z; e.cd = 99; e.rest = 99; e.mv = null; e.hold = 0; e.dash = 0; } };
+  window.__hold = () => { const T = window.__tk; T.P.x = hx; T.P.z = hz; T.P.ry = A(S.chain.r); T.P.ty = Math.atan2(bx - hx, bz - hz); T.P.hp = 999; T.G.inv = 0; for (const [e, x, z] of window.__cvE) { e.x = x; e.z = z; e.hp = e.max = 1e9; e.cd = 99; e.rest = 99; e.mv = null; e.hold = 0; e.dash = 0; } };
   window.__hold();
+  { const r = S.chain.r, bx0 = -Math.sin(r), bz0 = -Math.cos(r), pts = []; let a = Math.atan2(bx0, bz0), x = S.hero[0] + bx0 * 3.4, z = S.hero[1] + bz0 * 3.4; // 自機の後ろから少し曲がって続く鎖
+    for (let i = 0; i < S.chain.kinds.length; i++) { pts.push(M(x, z)); a += S.chain.bend; x += Math.sin(a) * 2.6; z += Math.cos(a) * 2.6; }
+    T.cars(S.chain.kinds, pts); }
   window.__tl = [[0, () => { const [x, z] = M(...S.kill); T.spawn(0, x, z, 1); T.boom(x, z, 1.2, 9999); }]].concat(S.booms.map(([f, x, z, R]) => [f, () => { const [mx, mz] = M(x, z); T.boom(mx, mz, R, 0); }]));
+  window.__fire = S.fire;
 }, [SCENE, ST]);
-for (let f = 0; f < 52; f++) await p.evaluate((f) => { const T = window.__tk; for (const [at, fn] of window.__tl) if (at === f) fn(); T.input({ mx: 0, mz: 0, auto: true }); window.__hold(); T.step(1, 1 / 60, true); }, f);
+for (let f = 0; f < 52; f++) await p.evaluate((f) => { const T = window.__tk; for (const [at, fn] of window.__tl) if (at === f) fn(); T.input({ mx: 0, mz: 0, auto: true, sp: f === window.__fire }); window.__hold(); T.step(1, 1 / 60, true); }, f);
 await p.addStyleTag({ content: `#app > *:not(#c){display:none !important} body > *:not(#app):not(#cvt){display:none !important}
   #cvt{position:fixed;left:0;right:0;display:flex;flex-direction:column;pointer-events:none;font-family:'Inter Display','Inter',sans-serif;font-weight:900;line-height:.86;z-index:99}
   #cvt .w{position:relative;display:inline-block;transform:skewX(-9deg);letter-spacing:.01em}
