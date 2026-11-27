@@ -37,7 +37,7 @@ export const UPS = [
   { id: 'hitch', max: 2, col: '#e0b070', ja: ['連結器', '列車の上限 +3両'], en: ['Coupler', 'Train capacity +3 cars'], icon: ic('<path d="M1 12h5M18 12h5"/><rect x="6" y="7" width="12" height="10" rx="2"/>') },
   { id: 'carfire', max: 4, col: '#ffcf6a', ja: ['車載砲', '車両の連射と威力 +20%'], en: ['Car Guns', 'Cars fire faster, hit harder (+20%)'], icon: ic('<rect x="3" y="11" width="12" height="7" rx="1.5"/><path d="M9 11V8h5l7-2"/>') },
   { id: 'carhp', max: 3, col: '#9fb4c8', ja: ['補強フレーム', '車両の耐久 +40%、全車修理'], en: ['Reinforced Frames', 'Car toughness +40%, repairs all'], icon: ic('<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 6l18 12M21 6L3 18"/>') },
-  { id: 'loopx', max: 3, col: '#ffd23f', ja: ['重い残骸', '残骸をぶつける・投げる威力 +35%'], en: ['Heavy Scrap', 'Swing & throw damage +35%'], icon: ic('<path d="M12 3a9 9 0 1 0 9 9"/><path d="M21 12l-3-3M21 12l3-3"/><circle cx="12" cy="12" r="2.5"/>', 0) },
+  { id: 'loopx', max: 3, col: '#ffd23f', ja: ['重い残骸', '残骸をぶつける・撃ち出す威力 +35%'], en: ['Heavy Scrap', 'Swing & scrap shell damage +35%'], icon: ic('<path d="M12 3a9 9 0 1 0 9 9"/><path d="M21 12l-3-3M21 12l3-3"/><circle cx="12" cy="12" r="2.5"/>', 0) },
 ];
 // 取ると画面で違いが分かる強化（弾が増える・爆発する・跳ねる・刃が回る など）
 const VIS = ['split', 'boom', 'bounce', 'orbit', 'salvo', 'rear', 'mine', 'pierce', 'frost'];
@@ -49,10 +49,10 @@ export const garCost = lv => Math.round(15 * Math.pow(1.5, Math.min(lv, 10)) * M
 export const GAR_MAX = 30;
 
 // ---- スクラップ列車 × 磁石クレーン: 倒した敵の残骸を磁石でくっつけて鎖で引く。車両は元の敵の武器で撃つ。
-// 曲がると鎖が振り子のように振れ、速くぶつけた残骸ほど痛い。「投げる」でつないだ残骸を群れに投げつけて爆発させる ----
+// 曲がると鎖が振り子のように振れ、速くぶつけた残骸ほど痛い。「ぶっ放す」でつないだ残骸を主砲に込めて連射する ----
 // 車両: 0 機銃車（ドローン・突撃車から）/ 1 砲車（砲手・迫撃車から）/ 2 装甲車（ブルートから。弾を止め、こすると強い）/ 3 爆弾車（自爆車から。敵に触れると爆発）
 // hp: 耐久、r: 当たりの半径、hl: 車両の長さの半分（鎖をつなぐ位置）、rng/cd/dm/spd/life: 射程・間隔・威力（自機の弾の何倍か）・弾速・弾の寿命、grind: こすったときの威力、armor: 受けるダメージの倍率
-// m: 重さ（振ってぶつけたときの威力の倍率）、fR/fD: 投げたときの爆発の半径と威力（自機の弾の何倍か）
+// m: 重さ（振ってぶつけたときの威力の倍率）、fR/fD: 主砲で撃ったときの爆発の半径と威力（自機の弾の何倍か。貫いた敵にはその半分）
 const CT = [
   { hp: 34, r: 0.95, hl: 0.85, rng: 10, cd: 1.0, dm: 0.25, spd: 26, life: 0.45, grind: 0.4, m: 1, fR: 3.4, fD: 6 },
   { hp: 40, r: 1.0, hl: 0.95, rng: 14, cd: 1.6, dm: 0.7, spd: 30, life: 0.55, grind: 0.4, m: 1.1, fR: 3.8, fD: 7 },
@@ -61,7 +61,7 @@ const CT = [
 ];
 const SALV = { 0: [0, 0.3], 4: [0, 0.3], 1: [1, 0.85], 6: [1, 0.85], 2: [2, 1], 5: [3, 0.75] }; // 敵の種類 → [車両, 残骸を落とす確率]
 const L0 = 2.1, GAP = 2.7; // 鎖の長さ: 磁石から1両目まで、車両の間
-const CARS = [], SV = [], FL = []; // 連結中の車両（前から順）、落ちている残骸、投げて飛んでいる残骸
+const CARS = [], SV = [], FL = []; // 連結中の車両（前から順）、落ちている残骸、主砲で撃って飛んでいる残骸
 const trainMax = () => 8 + 3 * (u.hitch || 0);
 let instCB, instCT, instLink, instMark, instRope, instMag, PC = [1, 1, 1];
 
@@ -186,9 +186,9 @@ function recalc() {
 }
 // 調整値（ボットの試算から決めた。__tk.tune で試せる）。xq: レベルアップに要る経験値の伸び、hpX / dmX: 拠点3から上乗せする敵の体力と攻撃
 // as: 同じ拠点で負けるたびに敵の体力と攻撃を下げる割合（最大 asMax 回ぶん。勝てば戻る）
-// horde: 小型の数の倍率、small: 小型（ドローン・突撃車）の体力の倍率（射撃だけでは溶けず、群れがたまって鎖と「投げる」の出番ができる）、carDm: 車両の射撃の倍率
-// chFr: 鎖の車両の地面の摩擦（小さいほどよく振れる）、swV: 振った車両が強く当たる速さ、swD: なぎ払いの威力、mag: 磁石が残骸を引き寄せる距離
-export const TUNE = { horde: 2.5, small: 3, carDm: 0.6, chFr: 1.4, swV: 6, swD: 0.32, mag: 5, xq: 0.55, hpX: 0.28, dmX: 0.05, e12: 0.92, as: 0.1, asMax: 5 };
+// horde: 小型の数の倍率、small: 小型（ドローン・突撃車）の体力の倍率（射撃だけでは溶けず、群れがたまって鎖と「ぶっ放す」の出番ができる）、carDm: 車両の射撃の倍率
+// chFr: 鎖の車両の地面の摩擦（小さいほどよく振れる）、swV: 振った車両が強く当たる速さ、swD: なぎ払いの威力、mag: 磁石が残骸を引き寄せる距離、shV: 撃った残骸の速さ、load: 1両を巻き取って込める秒数
+export const TUNE = { horde: 2.5, small: 3, carDm: 0.6, chFr: 1.4, swV: 6, swD: 0.32, mag: 5, shV: 55, load: 0.11, xq: 0.55, hpX: 0.28, dmX: 0.05, e12: 0.92, as: 0.1, asMax: 5 };
 const need = l => 4 + 3 * (l - 1) + TUNE.xq * (l - 1) * (l - 1);
 
 // hold: 「おかえり」画面の裏で戦場だけ用意し、出撃ボタンで begin() するまで止めておく
@@ -197,7 +197,7 @@ export function startRun(hold) {
   E.length = B.length = K.length = M.length = boomQ.length = H.length = LN.length = SQ.length = WK.length = VQ.length = CARS.length = SV.length = FL.length = 0; setWarn(H, LN);
   if (save.runs >= 1) MT.loginTick(); const sup = MT.supplyTick(); buildTank();
   u = {}; for (const d of UPS) u[d.id] = 0;
-  Object.assign(G, { state: hold ? 'hold' : 'play', slowT: 0, t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, xpD: Math.sqrt(1 + 0.12 * (save.stage - 1)), stage: save.stage, won: false, home: false, quietT: 0, dng: 0, dustT: 0, intro: false, first: save.runs === 0, salvN: 0, throws: 0, links: 0, crushed: 0, swH: 0, swK: 0 });
+  Object.assign(G, { state: hold ? 'hold' : 'play', slowT: 0, t: 0, wave: -1, wt: 0, queue: [], kills: 0, scrap: 0, banked: 0, lvl: 1, xp: 0, pend: 0, inv: 0, endT: 0, boss: null, sp: 0, spN: 0, paused: false, pzN: 0, xpD: Math.sqrt(1 + 0.12 * (save.stage - 1)), stage: save.stage, won: false, home: false, quietT: 0, dng: 0, dustT: 0, intro: false, first: save.runs === 0, salvN: 0, salvos: 0, salvo: null, links: 0, crushed: 0, swH: 0, swK: 0 });
   G.as = save.lose && save.lose.s === save.stage ? Math.min(TUNE.asMax, save.lose.n) : 0; // 続けて負けた回数
   music('calm'); musicVol(1);
   recalc(); Object.assign(P, { x: 0, z: 0, vx: 0, vz: 0, ry: Math.PI, ty: Math.PI, hp: S.maxhp, cd: 0, mineT: 1, recoil: 0, dead: false, sh: 0, da: 0, dcd: 1 });
@@ -300,7 +300,7 @@ function shoot() {
 function charge(v) { if (G.state === 'play') G.sp = Math.min(1, G.sp + v / Math.min(3.5, 1 + 0.35 * G.spN)); } // 使うたびに少したまりにくくなる
 function special() {
   if (G.state !== 'play') return;
-  if (CARS.length >= 2) { fling(); return; } // 列車があるときは「投げる」（ゲージは要らない）
+  if (CARS.length >= 2 || G.salvo) { salvo(); return; } // 列車があるときは「ぶっ放す」（ゲージは要らない）
   if (G.sp < 1) return;
   G.sp = 0; G.spN++; ev('sp', { s: Math.round(G.t), n: G.spN }); if (!save.sp1) { save.sp1 = 1; persist(); }
   const a = P.ty, auto = I.touch || I.auto, far = auto ? (tgt && !tgt.dead ? Math.min(22, Math.hypot(tgt.x - P.x, tgt.z - P.z)) : 11) : clamp(Math.hypot(I.ax - P.x, I.az - P.z), 5, 22);
@@ -341,12 +341,12 @@ function updChain(dt) {
   for (const c of CARS) { c.ox = c.x; c.oz = c.z; c.x += c.vx * fr * dt; c.z += c.vz * fr * dt; }
   for (let it = 0; it < 6; it++) {
     for (let i = 0; i < n; i++) {
-      const c = CARS[i], p = i ? CARS[i - 1] : null, px = p ? p.x : ax, pz = p ? p.z : az, L = i ? GAP : L0, dx = c.x - px, dz = c.z - pz, d = Math.hypot(dx, dz) || 1e-4;
+      const c = CARS[i], p = i ? CARS[i - 1] : null, px = p ? p.x : ax, pz = p ? p.z : az, L = i ? GAP : c.ld !== undefined ? c.l0 * (1 - Math.min(1, c.ld)) ** 2 : L0, /* 巻き取り中の先頭は磁石へ引き寄せる */ dx = c.x - px, dz = c.z - pz, d = Math.hypot(dx, dz) || 1e-4;
       if (d <= L && d >= L * 0.7) continue; const e = (d - (d > L ? L : L * 0.7)) / d; // 鎖は伸びない。縮みすぎも押し返す
       if (p) { c.x -= dx * e * 0.5; c.z -= dz * e * 0.5; p.x += dx * e * 0.5; p.z += dz * e * 0.5; } else { c.x -= dx * e; c.z -= dz * e; }
     }
     for (let i = 0; i < n; i++) { // 戦車の車体と、離れた車両どうしは重ならない
-      const c = CARS[i]; { const dx = c.x - P.x, dz = c.z - P.z, d = Math.hypot(dx, dz) || 1e-4, m = 1.9; if (d < m) { c.x += dx / d * (m - d); c.z += dz / d * (m - d); } }
+      const c = CARS[i]; if (c.ld === undefined) { const dx = c.x - P.x, dz = c.z - P.z, d = Math.hypot(dx, dz) || 1e-4, m = 1.9; if (d < m) { c.x += dx / d * (m - d); c.z += dz / d * (m - d); } }
       for (let j = i + 2; j < n; j++) { const o = CARS[j], dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz) || 1e-4, m = 1.9; if (d < m) { const q = (m - d) / d * 0.5; o.x += dx * q; o.z += dz * q; c.x -= dx * q; c.z -= dz * q; } }
     }
   }
@@ -365,13 +365,20 @@ function updTrain(dt, live) {
     const q = (P.x - v.x) ** 2 + (P.z - v.z) ** 2; if (q < 2.5 * 2.5) { SV.splice(i, 1); attach(v); continue; }
     if (q < TUNE.mag * TUNE.mag) { const k = Math.min(1, dt * 5); v.x += (ax - v.x) * k; v.z += (az - v.z) * k; v.ry += dt * 4; if (rnd() < dt * 12) fxSparks(v.x, v.z, 1, 0x8fe3ff); }
   }
-  for (let i = FL.length - 1; i >= 0; i--) { // 投げた残骸: 弧を描いて飛び、着地で爆発
-    const f = FL[i]; f.t += dt; const q = Math.min(1, f.t / f.T);
-    if (f.e && !f.e.dead && q < 0.75) { const k = Math.min(1, dt * 8); f.x1 += (f.e.x - f.x1) * k; f.z1 += (f.e.z - f.z1) * k; } // 狙った敵を少し追う
-    f.x = f.x0 + (f.x1 - f.x0) * q; f.z = f.z0 + (f.z1 - f.z0) * q; f.y = 4 * f.h * q * (1 - q); f.ry += f.spin * dt;
-    if (rnd() < dt * 30) burst(f.x, f.y + 0.7, f.z, 1, 0x4a4d5c, 1.5, 0.3, 0.5, 0.6, 0.3);
-    if (q >= 1) { FL.splice(i, 1); landScrap(f); }
+  for (let i = FL.length - 1; i >= 0; i--) { // 撃った残骸: まっすぐ飛んで（狙った敵を少し追う）小型は貫き、大型に当たるか着いたら爆発
+    const f = FL[i]; if (f.e && !f.e.dead) { f.x1 = f.e.x; f.z1 = f.e.z; }
+    const dx = f.x1 - f.x, dz = f.z1 - f.z, L = Math.hypot(dx, dz) || 1e-4, st = TUNE.shV * dt; let end = L <= st || f.d > 34;
+    if (!end) { f.x += dx / L * st; f.z += dz / L * st; f.d += st; f.ry += f.spin * dt; }
+    if (!end) for (const e of E) {
+      if (e.dead || e.drop > 0 || f.hit.includes(e)) continue; const r = e.r + 0.9; if ((e.x - f.x) ** 2 + (e.z - f.z) ** 2 > r * r) continue;
+      if (ET[e.k].boss || e.k === 2 || e === f.e) { end = true; break; } // 大型と狙った敵は止める
+      f.hit.push(e); const sd = (e.x - f.x) * dz - (e.z - f.z) * dx > 0 ? 1 : -1; hurtE(e, S.dmg * CT[f.k].fD * 0.5 * (1 + 0.35 * (u.loopx || 0)), dx / L * 6 - dz / L * 5 * sd, dz / L * 6 + dx / L * 5 * sd, true); if (e.dead) f.v.kills++; fxSparks(e.x, e.z, 4, 0xffb21e);
+    }
+    { const b = W.blockAt(f.x, f.z); if (b) { if (b.t === W.WALL) end = true; else W.damageBlock(b, 999); } } // 壁で止まる、木箱は砕いて進む
+    if (rnd() < dt * 40) { burst(f.x, 1.3, f.z, 1, 0x4a4d5c, 1.2, 0.34, 0.55, 0.5, 0.2); burst(f.x, 1.3, f.z, 1, 0xffb21e, 2, 0.18, 0.18, 0.5, 1); }
+    if (end) { FL.splice(i, 1); landScrap(f); }
   }
+  updSalvo(dt);
   if (!CARS.length) return;
   updChain(dt);
   const k = 1 - Math.exp(-14 * dt), cf = 1 + 0.2 * (u.carfire || 0), cdm = cf * TUNE.carDm;
@@ -408,29 +415,45 @@ function updTrain(dt, live) {
   }
   if (CARS.some(c => c.dead)) { let n = 0; for (const c of CARS) if (!c.dead) CARS[n++] = c; CARS.length = n; }
 }
-// 投げる（車両が2両以上のときの必殺。ゲージは要らない）: 磁石を切って、つないだ残骸を全部まとめて群れに投げつける。着地ごとに爆発
 function packAt() { // 自機の近く（18以内）でいちばん密な群れの中心
   let best = null, bn = 0; const L = E.filter(e => !e.dead && e.drop <= 0 && (e.x - P.x) ** 2 + (e.z - P.z) ** 2 < 324);
   for (const a of L) { let n = 0, x = 0, z = 0; for (const b of L) if ((a.x - b.x) ** 2 + (a.z - b.z) ** 2 < 30) { n++; x += b.x; z += b.z; } if (n > bn) { bn = n; best = [x / n, z / n]; } }
   return best;
 }
-function flingAt() { // 投げる先: PCで照準ありならカーソル（4〜22）、それ以外はいちばん密な群れ → 狙っている敵 → 前方
+function flingAt() { // ぶっ放す先: PCで照準ありならカーソル（4〜22）、それ以外はいちばん密な群れ → 狙っている敵 → 前方
   if (!I.touch && !I.auto && !I.ext) { const dx = I.ax - P.x, dz = I.az - P.z, d = Math.hypot(dx, dz) || 1, r = clamp(d, 4, 22); return [P.x + dx / d * r, P.z + dz / d * r]; }
   const c = packAt(); if (c) return c; if (tgt && !tgt.dead) return [tgt.x, tgt.z]; return [P.x + Math.sin(P.ry) * 10, P.z + Math.cos(P.ry) * 10];
 }
-function fling() {
-  const [tx, tz] = flingAt(), n = CARS.length, v = { n, left: n, kills: 0, x: tx, z: tz };
-  const near = E.filter(e => !e.dead && e.drop <= 0 && (e.x - tx) ** 2 + (e.z - tz) ** 2 < 49).sort((a, b) => ((a.x - tx) ** 2 + (a.z - tz) ** 2) - ((b.x - tx) ** 2 + (b.z - tz) ** 2));
-  CARS.forEach((c, i) => { // 1両ずつ別の敵を狙う。敵が足りなければ印のまわりに散らす
-    const e = i < near.length ? near[i] : null, a = rnd() * 6.283, r = i ? rr(1, 3) : 0, x1 = e ? e.x : tx + Math.sin(a) * r, z1 = e ? e.z : tz + Math.cos(a) * r, d = Math.hypot(x1 - c.x, z1 - c.z);
-    FL.push({ k: c.k, x: c.x, z: c.z, y: 0, x0: c.x, z0: c.z, x1, z1, e, t: 0, T: 0.42 + d / 45 + i * 0.06, h: 2.5 + d * 0.16, ry: c.ry, spin: rr(8, 13) * (rnd() < 0.5 ? -1 : 1), v });
-  });
-  const [ax, az] = anchor(); CARS.length = 0; G.throws++; P.recoil = 1.6;
-  ring(ax, az, 3, 0x8fe3ff); fxSparks(ax, az, 10, 0x8fe3ff); flash(ax, az, 6, 0x8fe3ff); sfx.special(); addShake(0.25);
-  ev('sp', { s: Math.round(G.t), th: 1, cars: n }); once('throw', { s: Math.round(G.t), cars: n });
+// ぶっ放す（車両が2両以上のときの必殺。ゲージは要らない）: つないだ残骸を前から1両ずつ磁石で巻き取り、主砲に込めて連射する
+// 撃った残骸はまっすぐ飛んで小型を貫き、大型に当たるか狙った先に着くと爆発する
+function salvo() {
+  if (G.salvo || CARS.length < 2) return; const n = CARS.length;
+  const [x, z] = flingAt(); G.salvo = { rem: n, v: { n, left: n, kills: 0, x, z }, a: P.ty }; G.salvos++; // 狙う先は押した時点で決める（PCで照準ありならカーソルに合わせて動く）
+  ev('sp', { s: Math.round(G.t), sv: 1, cars: n }); once('salvo', { s: Math.round(G.t), cars: n });
+}
+function salvoEnd(v) { // 最後の1発が爆発したら、まとめて倒した数を出す
+  G.crushed += v.kills; if (v.kills >= 2) popText(v.x, v.z, '×' + v.kills + ' ' + jaEn('まとめて撃破！', 'CRUSHED!')); if (v.kills >= 5) G.slowT = Math.max(G.slowT, 0.25);
+  if (v.kills && !save.th1) { save.th1 = 1; persist(); }
+}
+function updSalvo(dt) {
+  const s = G.salvo; if (!s) return;
+  if (!CARS.length || s.rem <= 0) { if (CARS.length && CARS[0].ld !== undefined) delete CARS[0].ld; s.v.left -= s.rem; s.rem = 0; G.salvo = null; if (s.v.left <= 0) salvoEnd(s.v); return; }
+  const c = CARS[0]; if (c.ld === undefined) { const [ax, az] = anchor(); c.ld = 0; c.l0 = Math.max(0.5, Math.hypot(c.x - ax, c.z - az)); } // 巻き取り開始
+  c.ld += dt / TUNE.load; if (c.ld < 1) return;
+  CARS.shift(); s.rem--; fireScrap(c.k, s);
+}
+function fireScrap(k, s) {
+  const v = s.v; if (!I.touch && !I.auto && !I.ext) [v.x, v.z] = flingAt(); const tx = v.x, tz = v.z;
+  let e = null, bd = 64; for (const q of E) { if (q.dead || q.drop > 0 || q.aim === v) continue; const d = (q.x - tx) ** 2 + (q.z - tz) ** 2; if (d < bd) { bd = d; e = q; } } // 1発ずつ別の敵を狙う
+  if (e) e.aim = v; else { bd = 64; for (const q of E) { if (q.dead || q.drop > 0) continue; const d = (q.x - tx) ** 2 + (q.z - tz) ** 2; if (d < bd) { bd = d; e = q; } } }
+  const x1 = e ? e.x : tx, z1 = e ? e.z : tz, a = Math.atan2(x1 - P.x, z1 - P.z), m = tank.mz + 0.4, x0 = P.x + Math.sin(a) * m, z0 = P.z + Math.cos(a) * m;
+  P.ty = a; s.a = a; P.recoil = 2.4; P.vx -= Math.sin(a) * 5; P.vz -= Math.cos(a) * 5; // 反動で少し下がる
+  FL.push({ k, x: x0, z: z0, y: 1.25, x1, z1, e, d: 0, ry: a, spin: rr(10, 16) * (rnd() < 0.5 ? -1 : 1), v, hit: [] });
+  fxMuzzle(x0, z0, a, 0xffb21e); fxMuzzle(x0, z0, a, 0xffb21e); flash(x0, z0, 8, 0xffc040); burst(x0, 1.3, z0, 10, 0x4a4d5c, 7, 0.4, 0.7, 0.8, 0.4); burst(x0, 1.3, z0, 8, 0xffb21e, 12, 0.22, 0.25, 1, 1);
+  addShake(0.3); sfx.cannon(); sfx.special();
 }
 function landScrap(f) {
-  const d = CT[f.k], v = f.v, R = d.fR * (1 + 0.04 * Math.min(10, v.n)), dm = S.dmg * d.fD * (1 + 0.06 * (v.n - 1)) * (1 + 0.35 * (u.loopx || 0)), x = f.x1, z = f.z1;
+  const d = CT[f.k], v = f.v, R = d.fR * (1 + 0.04 * Math.min(10, v.n)), dm = S.dmg * d.fD * (1 + 0.06 * (v.n - 1)) * (1 + 0.35 * (u.loopx || 0)), x = f.x, z = f.z;
   for (const e of E) {
     if (e.dead || e.drop > 0) continue; const dx = e.x - x, dz = e.z - z, q = dx * dx + dz * dz; if (q > (R + e.r) ** 2) continue;
     const dd = Math.sqrt(q) || 1, boss = ET[e.k].boss, hd = dm * (boss ? 0.6 : 1); e.crush = !boss && hd >= e.hp; hurtE(e, hd, dx / dd * 7, dz / dd * 7, true); e.crush = false; if (e.dead) v.kills++;
@@ -439,9 +462,7 @@ function landScrap(f) {
   const col = d.bomb ? 0xff5b6b : 0xffd23f;
   fxExplode(x, z, R * 0.75); fxBlast(x, z, R / 3); fxShock(x, z, R * 1.5, col); flash(x, z, 6 + R, d.bomb ? 0xff6a3a : 0xffc040); burst(x, 1, z, 14, 0x8a6446, 11, 0.32, 0.8, 1.2, 0.5);
   addShake(d.bomb ? 0.45 : 0.25); sfx.boom(true);
-  if (--v.left > 0) return; // 最後の1両が落ちたら、まとめて倒した数を出す
-  G.crushed += v.kills; if (v.kills >= 2) popText(v.x, v.z, '×' + v.kills + ' ' + jaEn('まとめて撃破！', 'CRUSHED!')); if (v.kills >= 5) G.slowT = Math.max(G.slowT, 0.25);
-  if (v.kills && !save.th1) { save.th1 = 1; persist(); }
+  if (--v.left <= 0 && !(G.salvo && G.salvo.v === v)) salvoEnd(v);
 }
 function hurtE(e, d, kx, kz, big) {
   if (e.dead || e.drop > 0) return; if (ET[e.k].boss) charge(Math.min(d, e.hp) / e.max * 0.8); e.hp -= d; e.hitT = 0.1;
@@ -449,7 +470,7 @@ function hurtE(e, d, kx, kz, big) {
   const m = ET[e.k].boss ? 0 : e.k === 2 ? 0.35 : 1; e.kx += kx * m; e.kz += kz * m;
   if (e.hp <= 0) kill(e);
 }
-function kill(e) { // 投げた残骸で倒すと歯車が倍、スクラップ +1
+function kill(e) { // 撃った残骸の爆発で倒すと歯車が倍、スクラップ +1
   e.dead = true; const d = ET[e.k]; if (e.crush && !d.boss) { K.push({ x: e.x, z: e.z, v: d.xp, t: 0, heal: false, vac: false }); G.scrap++; } G.kills++; if (!d.boss && !e.crush) charge(d.xp * 0.035); once('kill', { s: Math.round(G.t) }); { const bx = d.sc * 0.15 * u.scav, sc = d.sc + Math.floor(bx) + (rnd() < bx % 1 ? 1 : 0); G.scrap += sc; MT.dailyAdd('scrap', sc); } MT.dailyAdd('kills', 1);
   const bs = !!d.boss, big = bs || e.k === 2, sm = e.k === 0 || e.k === 4;
   const R = sm ? 2.5 : bs ? 6 : e.k === 2 || e.k === 5 ? 3.8 : 3; // 爆発の大きさ（倒した手応えが出るよう、敵の見た目より大きめ）
@@ -523,7 +544,7 @@ function showResult() {
   MT.loginTick(); const sup = MT.supplyTick(); if (sup.arrived) G.arrived = sup.arrived;
   let unl = []; bank(); save.lose = G.won ? null : G.home ? save.lose : { s: G.stage, n: (save.lose && save.lose.s === G.stage ? save.lose.n : 0) + 1 }; if (G.won) { save.stage++; if (save.stage > save.best) { save.best = save.stage; unl = MT.unlockedAt(save.best); } } persist();
   G.state = 'result';
-  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, sp: G.spN, pz: G.pzN, as: G.as, won: G.won ? 1 : 0, home: G.home ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, throws: G.throws, links: G.links, crushed: G.crushed, swk: G.swK, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
+  ev('end', { run: save.runs, stage: G.stage, wave: G.wave, sp: G.spN, pz: G.pzN, as: G.as, won: G.won ? 1 : 0, home: G.home ? 1 : 0, s: Math.round(G.t), lvl: G.lvl, kills: G.kills, salvos: G.salvos, links: G.links, crushed: G.crushed, swk: G.swK, x: Math.round(P.x), z: Math.round(P.z), sup: sup.next || '' }); if (G.won) once('win', { run: save.runs }); flush();
   music('calm'); musicVol(0.45);
   const nx = themeOf(save.stage); UI.showResult({ place: jaEn(TH.ja, TH.en), next: jaEn(nx.ja, nx.en), nextStage: save.stage, win: G.won, home: G.home, stage: G.stage, wave: Math.min(G.wave + 1, NWAVE), boss: G.wave >= NWAVE, t: G.t, kills: G.kills, lvl: G.lvl, earned: G.scrap, arrived: G.arrived, supply: sup.next, unlocked: unl }, { buy: buyGar, go: startRun }); G.arrived = null;
 }
@@ -540,12 +561,12 @@ function tutorial() {
   if (G.tut === 0) { if (I.moved) { G.tut = 1; G.tutT = G.t; } else UI.hint(UI.ICON.mouse + (I.lock ? jaEn('マウスを動かした方向へ進む　<b>クリックで止まる</b>', 'Move the mouse to steer. <b>Click to stop</b>') : jaEn('マウスを動かすと戦車がついてくる', 'Move the mouse. Your tank follows')), true); }
   if (G.tut === 1) { if (G.kills >= 2 && G.t - G.tutT > 2) { G.tut = 2; UI.hint(null); } else UI.hint(UI.ICON.aim + (I.auto ? jaEn('射撃は自動　動き回って敵をかわそう', 'Firing is automatic. Keep moving!') : jaEn('マウスで狙う　射撃は自動', 'Aim with the mouse. Firing is automatic')), G.kills < 1); }
 }
-// 列車の案内（一度投げて倒すまで）: 磁石で残骸をつかむ → 曲がって振る → 投げる
+// 列車の案内（一度ぶっ放して倒すまで）: 磁石で残骸をつかむ → 曲がって振る → ぶっ放す
 function trainTut() {
-  if (G.tut < 2) return; if (save.th1) { if (!G.tutL) { G.tutL = 1; UI.hint(null); } return; } // 一度投げて倒したら案内を消す
+  if (G.tut < 2) return; if (save.th1) { if (!G.tutL) { G.tutL = 1; UI.hint(null); } return; } // 一度ぶっ放して倒したら案内を消す
   if (!CARS.length) { if (SV.length) UI.hint(UI.ICON.link + jaEn('光る残骸に近づくと、磁石でくっつく', 'Get close to a glowing wreck. Your magnet grabs it'), true); else UI.hint(null); return; }
-  if (CARS.length < 2) { UI.hint(UI.ICON.link + jaEn('曲がると鎖が振れて敵をなぎ払う　もう1両で「投げる」', 'Turn to swing the chain into enemies. One more car unlocks THROW'), false); return; }
-  UI.hint(UI.ICON.loop + (I.touch ? jaEn('「投げる」ボタンで、残骸を黄色い印に投げつける', 'Tap THROW to hurl your wrecks at the yellow mark') : jaEn('<kbd>Space</kbd> か右クリックで、残骸を黄色い印に投げつける', 'Press <kbd>Space</kbd> or right-click to hurl your wrecks at the yellow mark')), true);
+  if (CARS.length < 2) { UI.hint(UI.ICON.link + jaEn('曲がると鎖が振れて敵をなぎ払う　もう1両で「ぶっ放す」', 'Turn to swing the chain into enemies. One more car unlocks FIRE'), false); return; }
+  UI.hint(UI.ICON.loop + (I.touch ? jaEn('「ぶっ放す」で残骸を黄色い印へ撃ち込む', 'Tap FIRE to blast your wrecks from the main gun at the yellow mark') : jaEn('<kbd>Space</kbd> か右クリックで、残骸を主砲で黄色い印へ撃ち込む', 'Press <kbd>Space</kbd> or right-click to blast your wrecks from the main gun at the yellow mark')), true);
 }
 // ドラム缶に触れると磁石でくっつき、爆弾車になる
 const grab = b => { if (b.t === W.BARREL && b.hp > 0 && G.state === 'play' && CARS.length < trainMax()) { W.take(b); attach({ k: 3, x: b.x, z: b.z, ry: rnd() * 6.283 }); } };
@@ -583,6 +604,7 @@ export function update(dt) {
       if (tgt) { aim = Math.atan2(tgt.x - P.x, tgt.z - P.z); fire = true; } else { fire = false; if (I.mx || I.mz) aim = Math.atan2(I.mx, I.mz); }
       P.ty = angLerp(P.ty, aim, 1 - Math.exp(-16 * dt));
     } else { P.ty = Math.atan2(I.ax - P.x, I.az - P.z); }
+    if (G.salvo) P.ty = angLerp(P.ty, G.salvo.a, 1 - Math.exp(-30 * dt)); // ぶっ放している間は砲を撃つ向きに
     P.cd -= dt; if (fire && P.cd <= 0) { P.cd = 1 / S.rate; shoot(); }
     if (S.salvo) { P.sv = (P.sv || 0) - dt; if (P.sv <= 0) { P.sv = 6.5 - S.salvo; const n = 8 + 4 * S.salvo; for (let j = 0; j < n; j++) bullet(P.x, P.z, j / n * 6.283, false, S.dmg * 0.7, S.bspd * 0.8, S.blife); ring(P.x, P.z, 3, 0xff9d3c); } }
     if (S.orbit) { P.oa = (P.oa || 0) + dt * 3.4; for (let j = 0; j < S.orbit; j++) { const a = P.oa + j / S.orbit * 6.283, ox = P.x + Math.sin(a) * 3.3, oz = P.z + Math.cos(a) * 3.3; for (const e of E) { if (e.dead || e.sawT > G.t) continue; const r = e.r + 0.7; if ((e.x - ox) ** 2 + (e.z - oz) ** 2 < r * r) { e.sawT = G.t + 0.35; hurtE(e, S.dmg * 0.8, (e.x - P.x) * 0.6, (e.z - P.z) * 0.6); fxSparks(ox, oz, 3); } } } }
@@ -748,9 +770,9 @@ export function draw(time) {
     if (v.t > 11 && ((v.t * 7) | 0) % 2 === 0) continue; const g = 0.2, p = 1 + 0.12 * Math.sin(time * 6 + v.x), b = 1 + 0.35 * Math.sin(time * 6 + v.x);
     instCB[v.k].put(v.x, 0, v.z, v.ry, 1, 0.92, g, g * 0.9, g * 0.82); instCT[v.k].put(v.x, 0, v.z, v.ry + 0.5, 1, 0.92, g, g, g); instMark.put(v.x, 0.12, v.z, 0, p, 1, 1.5 * b, 1.05 * b, 0.12 * b);
   }
-  for (const f of FL) { const s = 1 + f.y * 0.07; instCB[f.k].put(f.x, f.y, f.z, f.ry, s, s, 1, 1, 1); if (f.k === 3) instCT[3].put(f.x, f.y, f.z, f.ry, s, s, 1, 1, 1); else instCT[f.k].put(f.x, f.y, f.z, f.ry, s, s, PC[0], PC[1], PC[2]); } // 投げて飛んでいる残骸
+  for (const f of FL) { const s = 0.9; instCB[f.k].put(f.x, f.y, f.z, f.ry, s, s, 1, 1, 1); if (f.k === 3) instCT[3].put(f.x, f.y, f.z, f.ry, s, s, 1, 1, 1); else instCT[f.k].put(f.x, f.y, f.z, f.ry, s, s, PC[0], PC[1], PC[2]); } // 撃った残骸
   instRope.begin();
-  if (CARS.length >= 2 && !P.dead && G.state === 'play') { // 投げる先の印（黄色い点線の円と十字）
+  if (CARS.length >= 2 && !P.dead && G.state === 'play') { // ぶっ放す先の印（黄色い点線の円と十字）
     if ((G.planT = (G.planT || 0) - 1 / 60) <= 0 || !G.plan) { G.planT = 0.1; G.plan = flingAt(); }
     const [cx, cz] = G.plan, R = 3.2, n = 26, b = 1.3 * (1 + 0.25 * Math.sin(time * 7));
     for (let i = 0; i < n; i++) { const a = i / n * 6.283 + time * 0.8; instRope.put(cx + Math.sin(a) * R, 0.07, cz + Math.cos(a) * R, a + Math.PI / 2, 1, 1, 2.2 * b, 1.6 * b, 0.25 * b); }
@@ -786,5 +808,5 @@ export function snapshot() {
     foe: B.filter(b => b.foe && (b.x - P.x) ** 2 + (b.z - P.z) ** 2 < 64).slice(0, 8).map(b => [b.x, b.z]).concat(H.map(h => [h.x, h.z]), aimPt()),
     boss: G.boss && !G.boss.dead ? { mv: G.boss.mv, hp: G.boss.hp / G.boss.max } : null, haz: H.length,
     swarm: (() => { let x = 0, z = 0, n = 0; for (const e of E) if (!e.dead && (e.x - P.x) ** 2 + (e.z - P.z) ** 2 < 400) { x += e.x; z += e.z; n++; } return n ? [x / n, z / n, n] : null; })(),
-    gear: K.slice(0, 40).map(k => [k.x, k.z]), cars: CARS.length, cap: trainMax(), sv: SV.map(v => [v.x, v.z]), throws: G.throws, crushed: G.crushed, links: G.links, swh: G.swH, swk: G.swK, fl: FL.length };
+    gear: K.slice(0, 40).map(k => [k.x, k.z]), cars: CARS.length, cap: trainMax(), sv: SV.map(v => [v.x, v.z]), salvos: G.salvos, crushed: G.crushed, links: G.links, swh: G.swH, swk: G.swK, fl: FL.length };
 }

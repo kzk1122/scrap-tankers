@@ -45,7 +45,7 @@ export function hud(d) {
   const p = Math.round(Math.min(1, d.sp) * 50), rdy = d.sp >= 1; // 必殺技ゲージ
   if (cache.sp !== p) { cache.sp = p; $('sp').style.setProperty('--p', p * 2 + '%'); }
   if (cache.spr !== rdy) { cache.spr = rdy; $('sp').classList.toggle('ready', rdy); }
-  if (cache.spk !== touchUi + ':' + d.fling) { cache.spk = touchUi + ':' + d.fling; $('spk').textContent = touchUi ? 'TAP' : 'SPACE'; $('spl').textContent = d.fling ? jaEn('投げる', 'THROW') : jaEn('必殺', 'BLAST'); $('sp').classList.toggle('fling', !!d.fling); } // 列車があるときは「投げる」
+  if (cache.spk !== touchUi + ':' + d.fling) { cache.spk = touchUi + ':' + d.fling; $('spk').textContent = touchUi ? 'TAP' : 'SPACE'; $('spl').textContent = d.fling ? jaEn('ぶっ放す', 'FIRE') : jaEn('必殺', 'BLAST'); $('sp').classList.toggle('fling', !!d.fling); } // 列車があるときは「ぶっ放す」
   if (cache.sph !== d.spHint) { cache.sph = d.spHint; $('sptip').hidden = !d.spHint; if (d.spHint) $('sptip').innerHTML = touchUi ? jaEn('必殺技がたまった！ ボタンを押すと大砲撃', 'Special ready! Tap the button for a big blast') : jaEn('必殺技がたまった！ <kbd>Space</kbd> か右クリックで大砲撃', 'Special ready! Press <kbd>Space</kbd> or right-click for a big blast'); }
 }
 let touchUi = false;
@@ -60,7 +60,7 @@ export function hint(html, pulse) { const h = $('hint'); if (!html) { h.hidden =
 // PC では操作方法を常に左下へ出す（スマホでは出さない）。視点・一時停止・音はボタンの角にキーを添える
 export function legend(show, lock, fling) {
   touchUi = !show; const k = $('keys'), key = show + '|' + !!lock + '|' + !!fling; if (cache.keys === key) return; cache.keys = key; k.hidden = !show; document.body.classList.toggle('kbd', !!show);
-  if (show) k.innerHTML = [lock ? [ICON.mouse, jaEn('動かした方向へ進む', 'Steer')] : [ICON.mouse, jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], ['<kbd>Space</kbd>', fling ? jaEn('投げる', 'Throw') : jaEn('必殺技', 'Special')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
+  if (show) k.innerHTML = [lock ? [ICON.mouse, jaEn('動かした方向へ進む', 'Steer')] : [ICON.mouse, jaEn('ついてくる', 'Tank follows')], ...(lock ? [[jaEn('<b>クリック</b>', '<b>Click</b>'), jaEn('止まる', 'Stop')]] : []), ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', jaEn('でも移動', 'also moves')], ['<kbd>Space</kbd>', fling ? jaEn('ぶっ放す', 'Fire scrap') : jaEn('必殺技', 'Special')]].map(a => `<span>${a[0]} ${a[1]}</span>`).join('');
 }
 // 説明に添える絵（文字を減らす）
 export const ICON = {
