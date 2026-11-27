@@ -30,7 +30,7 @@ const errs = [];
   s = await S(); ok(s.pz, 'switching tabs pauses');
   await p.evaluate(() => { Object.defineProperty(document, 'hidden', { value: false, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }); await p.waitForTimeout(300);
   s = await S(); ok(s.pz && !(await p.evaluate(() => window.__tk.music().running)), 'coming back stays paused and silent until the player resumes');
-  ok(/Esc/.test(await p.evaluate(() => document.getElementById('keys').innerText)), 'key legend shows Esc');
+  ok(await p.evaluate(() => document.body.classList.contains('kbd') && getComputedStyle(document.getElementById('pz'), '::after').content.includes('P')), 'the pause button shows its key (P)');
   await p.close();
 }
 { // スマホ横持ち: 右上のボタンで止め、画面タップで再開。ボットは止めない
