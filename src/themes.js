@@ -21,12 +21,50 @@ function container() {
 }
 const ell = (g, c, x, y, rx, ry) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.fill(); };
 
+// 廃材置き場（拠点1）: 潰した車を固めた塊の壁、錆びた柵、柵の外には廃材の山。土の道が2本通る
+export const ROAD_W = 2.3, ROAD_A = x => 5 + 5 * Math.sin(x * 0.085 + 0.6), ROAD_B = z => -9 + 4.5 * Math.sin(z * 0.1 + 2.1);
+export const onRoad = (x, z, m = 0) => Math.abs(z - ROAD_A(x)) < ROAD_W + m || Math.abs(x - ROAD_B(z)) < ROAD_W + m;
+const BALE = [0x8c5236, 0x5c7896, 0x7d7a4a, 0x9c4034, 0x8a8e94];
+function bale() {
+  const p = [], hs = [0.4, 0.36, 0.4, 0.36, 0.38]; let y = 0;
+  for (let i = 0; i < 5; i++) { // 潰れた車の層。少しずつずらして色を変える
+    const h = hs[i], w = 1.84 - (i % 2) * 0.08, d = 1.8 - ((i + 1) % 2) * 0.1, ox = ((i * 37) % 5 - 2) * 0.025, oz = ((i * 53) % 5 - 2) * 0.03;
+    p.push({ s: [w, h - 0.04, d], p: [ox, y + h / 2, oz], c: BALE[i], ry: (i % 3 - 1) * 0.04 });
+    if (i === 1 || i === 3) for (const sg of [-1, 1]) { p.push({ s: [w * 0.55, 0.1, 0.03], p: [ox + sg * 0.2, y + h * 0.55, oz + sg * (d / 2 + 0.01)], c: 0x2a2d3a }); p.push({ s: [0.03, 0.1, d * 0.45], p: [ox + sg * (w / 2 + 0.01), y + h * 0.5, oz - sg * 0.25], c: 0x2a2d3a }); } // 窓のあと
+    if (i === 2) for (const sg of [-1, 1]) p.push({ s: [0.16, 0.06, 0.16], p: [ox + sg * 0.6, y + h * 0.5, oz + d / 2 + 0.02], c: 0xe8e0c0, cyl: 8, rx: Math.PI / 2 }); // ライト
+    y += h;
+  }
+  for (const x of [-0.5, 0.5]) { p.push({ s: [0.05, y + 0.02, 0.05], p: [x, y / 2, 0.93], c: 0x2b2e33 }, { s: [0.05, y + 0.02, 0.05], p: [x, y / 2, -0.93], c: 0x2b2e33 }, { s: [0.05, 0.05, 1.9], p: [x, y + 0.01, 0], c: 0x2b2e33 }); } // 針金の帯
+  p.push({ s: [1.1, 0.06, 0.75], p: [-0.25, y + 0.08, 0.3], c: 0x6f8f88, rz: 0.14, ry: 0.4 }); // てっぺんの曲がった板
+  p.push({ s: [0.16, 0.9, 0.16], p: [0.4, y + 0.1, -0.45], c: 0x7a4a32, cyl: 8, rz: Math.PI / 2, ry: 0.5 }); // さびた管
+  return p;
+}
+function scrapPile() {
+  const p = [{ s: [1.4, 3.4, 10], p: [0, 1.7, 0], c: 0x6e5440, cyl: 8 }, { s: [0.6, 1.8, 6], p: [0.7, 3.9, -0.5], c: 0x7a5e46, cyl: 7 }];
+  p.push({ s: [1.7, 0.95, 3.1], p: [2.4, 1.5, 1.2], c: 0x5c7896, ry: 0.6, rz: 0.5 }, { s: [1.6, 0.85, 2.8], p: [-2.5, 1.2, -0.9], c: 0xa8453a, ry: -0.9, rx: 0.4 }, { s: [1.5, 0.8, 2.6], p: [-0.5, 2.8, 1.5], c: 0xd9b04a, ry: 2.1, rz: -0.6 }, { s: [1.5, 0.8, 2.5], p: [0.9, 3.4, -1.8], c: 0x8d9096, ry: 1.2, rx: -0.5 });
+  p.push({ s: [1.1, 0.36, 1.1], p: [1.9, 0.9, -2.8], c: 0x26272b, cyl: 12, rx: 1.2 }, { s: [1.1, 0.36, 1.1], p: [-1.6, 2.3, 2.4], c: 0x26272b, cyl: 12, rz: 0.9 }, { s: [1.0, 0.34, 1.0], p: [-3.6, 0.5, 1.9], c: 0x26272b, cyl: 12, rx: 0.3 });
+  p.push({ s: [0.26, 0.26, 5], p: [-1.2, 2.6, 0.4], c: 0x8a5a3a, ry: 0.3, rx: -0.55 }, { s: [0.22, 0.22, 4], p: [1.6, 2.4, 0.2], c: 0x7a4a32, ry: -1.1, rz: 0.4 });
+  p.push({ s: [0.75, 1.05, 0.75], p: [3.9, 0.52, -1.4], c: 0x3d6fa8, cyl: 12 }, { s: [0.75, 1.05, 0.75], p: [4.5, 0.52, -0.6], c: 0xd93a3a, cyl: 12 });
+  return p;
+}
+
 export const THEMES = [
-  { id: 'plains', grass: { c: [0x5fa044, 0x93cc5c], d: 1 }, ja: '平原', en: 'Plains', g1: '#6da650', g2: '#5f9a46', bg: 0x2f6f5e, outer: 0x3b8468, fence: 0x56688f, sky: 0xffffff, gnd: 0x7fae8a, hemiI: 1.25, sun: 0xfff1d0, sunI: 1.9, dust: 0xb9d89a, crateFx: 0xc98d4b, wallFx: 0xcfd6e4,
-    crate: () => wood(0xc98d4b, 0xa66f36), tc: ONE,
-    wall: () => [{ s: [2, 1.9, 2], p: [0, 0.95, 0], c: 0xcfd6e4 }, { s: [2.04, 0.3, 2.04], p: [0, 1.75, 0], c: 0xaab4c8 }], tw: ONE,
-    far: () => tree(0x4fa85a, 0x62bd6a), small: () => [{ s: [0.12, 0.34, 0.12], p: [0, 0.17, 0], c: 0x5fae58 }, { s: [0.12, 0.26, 0.12], p: [0.16, 0.13, 0.08], c: 0x6fbe66 }, { s: [0.18, 0.12, 0.18], p: [0, 0.4, 0], c: 0xffe66d }],
-    paint(g, k) { for (let i = 0; i < 16; i++) ell(g, 'rgba(176,146,92,.32)', k.r() * k.S, k.r() * k.S, (2 + k.r() * 3.5) * k.u, (1.5 + k.r() * 2.5) * k.u); for (let i = 0; i < 220; i++) ell(g, ['#ffffff', '#ffe66d', '#ffb3d1'][i % 3], k.r() * k.S, k.r() * k.S, 0.13 * k.u, 0.13 * k.u); } },
+  { id: 'plains', grass: { c: [0x6f8c3e, 0xa6b65c], d: 0.5, h: 0.78, skip: (x, z) => onRoad(x, z, 0.4) }, ja: '廃材置き場', en: 'Scrapyard', g1: '#7f9150', g2: '#748846', bg: 0xbdb59a, outer: 0x6f7446, fence: 0x7d5a44, sky: 0xfff8ec, gnd: 0x9a9070, hemiI: 1.25, sun: 0xffe8c4, sunI: 1.95, dust: 0xc2b48e, crateFx: 0xb98247, wallFx: 0x8c5236,
+    crate: () => wood(0xb98247, 0x8f5f30), tc: ONE,
+    wall: bale, tw: lin([0xffffff, 0xffcdb0, 0xbcd0ee, 0xd9e6b8, 0xe6e2dc]), wspin: true, tall: [0.9, 1.12],
+    far: scrapPile, farN: 40, farS: [0.85, 1.7], farT: lin([0xffffff, 0xeadccb, 0xd9e1ea]),
+    small: () => [{ s: [0.62, 0.2, 0.62], p: [0, 0.1, 0], c: 0x26272b, cyl: 12 }, { s: [0.28, 0.22, 0.28], p: [0, 0.11, 0], c: 0x8d9096, cyl: 8 }, { s: [0.5, 0.04, 0.3], p: [0.55, 0.02, 0.25], c: 0x8c5236, ry: 0.5 }], smallN: 60,
+    paint(g, k) {
+      for (let i = 0; i < 22; i++) ell(g, 'rgba(150,124,86,.42)', k.r() * k.S, k.r() * k.S, (2 + k.r() * 4) * k.u, (1.5 + k.r() * 3) * k.u); // 土のむら
+      // 土の道（2本）と轍
+      const road = (fn, horiz) => { const line = (w, c, off) => { g.strokeStyle = c; g.lineWidth = w * k.u; g.beginPath(); for (let t = -k.A - 2; t <= k.A + 2; t += 0.5) { const a = fn(t) + off, X = horiz ? k.X(t) : k.X(a), Z = horiz ? k.X(a) : k.X(t); if (t === -k.A - 2) g.moveTo(X, Z); else g.lineTo(X, Z); } g.stroke(); };
+        line(ROAD_W * 2 + 1.4, 'rgba(140,116,80,.45)', 0); line(ROAD_W * 2, '#9c8660', 0); line(ROAD_W * 1.4, 'rgba(176,152,110,.55)', 0); for (const o of [-1.05, 1.05]) { line(0.42, 'rgba(98,78,52,.55)', o); line(0.12, 'rgba(70,56,38,.5)', o); } };
+      road(ROAD_A, true); road(ROAD_B, false);
+      for (let i = 0; i < 900; i++) { const x = k.r() * k.S, y = k.r() * k.S; g.fillStyle = ['rgba(90,80,64,.55)', 'rgba(200,188,160,.5)', 'rgba(60,52,44,.45)'][i % 3]; g.fillRect(x, y, 0.09 * k.u, 0.09 * k.u); } // 砂利
+      for (let i = 0; i < 18; i++) { const x = k.r() * k.S, y = k.r() * k.S, rx = (0.35 + k.r() * 0.7) * k.u; ell(g, 'rgba(34,30,36,.38)', x, y, rx, rx * (0.6 + k.r() * 0.3)); ell(g, 'rgba(120,100,160,.16)', x + rx * 0.2, y - rx * 0.1, rx * 0.5, rx * 0.25); } // 油のしみ
+      for (let i = 0; i < 120; i++) { g.save(); g.translate(k.r() * k.S, k.r() * k.S); g.rotate(k.r() * 3); g.fillStyle = ['rgba(140,82,54,.7)', 'rgba(141,144,150,.7)', 'rgba(92,120,150,.6)'][i % 3]; g.fillRect(0, 0, (0.2 + k.r() * 0.5) * k.u, (0.1 + k.r() * 0.2) * k.u); g.restore(); } // 金属のかけら
+      for (let i = 0; i < 60; i++) ell(g, ['#ffe66d', '#ffffff'][i % 2], k.r() * k.S, k.r() * k.S, 0.12 * k.u, 0.12 * k.u);
+    } },
   { id: 'mountain', grass: { c: [0x8a9a70, 0xb0bc90], d: 0.4, h: 0.8 }, ja: '山岳', en: 'Mountain', g1: '#a7b995', g2: '#9db08b', bg: 0x8fa3b5, outer: 0x77877a, fence: 0x6b6f7c, sky: 0xeaf4ff, gnd: 0x8f9a8a, hemiI: 1.3, sun: 0xf2f6ff, sunI: 1.7, dust: 0xc9cfc0, crateFx: 0x2f7d4f, wallFx: 0x9aa0a8,
     crate: () => [{ s: [0.36, 0.8, 0.36], p: [0, 0.4, 0], c: 0x7a5230, cyl: 6 }, { s: [0.06, 1.5, 1.9], p: [0, 1.5, 0], c: 0x2f7d4f, cyl: 7 }, { s: [0.03, 1.2, 1.4], p: [0, 2.4, 0], c: 0x3a9160, cyl: 7 }, { s: [0.02, 0.5, 0.62], p: [0, 3.02, 0], c: 0xf4f8ff, cyl: 7 }], tc: lin([0xffffff, 0xdff0df, 0xf0ffe8]),
     wall: () => [{ s: [1.8, 1.3, 1.7], p: [0, 0.65, 0], c: 0x9aa0a8, ry: 0.2 }, { s: [1.2, 0.9, 1.3], p: [0.25, 1.5, -0.1], c: 0xb4bac2, ry: 0.6 }, { s: [0.9, 0.7, 0.9], p: [-0.55, 0.35, 0.6], c: 0x858b94, ry: 0.9 }], tw: lin([0xffffff, 0xe6e6ec, 0xfff8ee]),
